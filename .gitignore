@@ -1,0 +1,15 @@
+# Package snapshot comparison file (internal use by sync-docs.sh)
+.last-packages.txt
+
+# Backup files created by bootstrap.sh
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
