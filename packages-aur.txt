@@ -1,0 +1,8 @@
+bibata-cursor-theme-bin
+heroic-games-launcher-bin
+papirus-folders-git
+paru
+paru-debug
+sddm-theme-tokyo-night-git
+tokyonight-gtk-theme-git
+visual-studio-code-bin
