@@ -11,6 +11,7 @@ orientation=vertical
 content_halign=fill
 insensitive=true
 allow_images=true
+sort_order=alphabetical
 image_size=24
 gtk_dark=true
 close_on_focus_lost=true

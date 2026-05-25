@@ -1,3 +1,11 @@
+#!/bin/bash
+# Load warna dari script colors.sh
+source ~/.cache/m3-colors/colors.sh
+
+# Pastikan direktori config ada
+mkdir -p ~/.config/dunst
+
+cat > ~/.config/dunst/dunstrc << EOF
 [global]
     # --- DISPLAY & GEOMETRY ---
     monitor = 0
@@ -31,7 +39,7 @@
     
     # Borders & Radius
     frame_width = 2
-    frame_color = "#978d9f"
+    frame_color = "$outline"
     separator_color = "frame"
     corner_radius = 10
 
@@ -55,21 +63,25 @@
 
 [urgency_low]
     # Surface Dim untuk low urgency
-    background = "#16121a"
-    foreground = "#cdc3d5"
-    frame_color = "#4b4453"
+    background = "$surface"
+    foreground = "$on_surface_variant"
+    frame_color = "$outline_variant"
     timeout = 4
 
 [urgency_normal]
     # Surface Container High (Warna standar M3 untuk dialog/popup)
-    background = "#16121a"
-    foreground = "#e8dfec"
-    frame_color = "#6019ad"
+    background = "$surface"
+    foreground = "$on_surface"
+    frame_color = "$primary_container"
     timeout = 8
 
 [urgency_critical]
     # Error Container (Merah M3) untuk critical
-    background = "#93000a"
-    foreground = "#ffdad6"
-    frame_color = "#ffb4ab"
+    background = "$error_container"
+    foreground = "$on_error_container"
+    frame_color = "$error"
     timeout = 0
+EOF
+
+# Restart dunst untuk menerapkan perubahan
+killall dunst

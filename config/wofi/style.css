@@ -1,66 +1,85 @@
 * {
-    font-family: "JetBrainsMono Nerd Font";
-    font-size: 13px;
+  font-family: 'CaskaydiaCove Nerd Font', monospace;
+  font-size: 18px;
 }
 
+/* Window */
 window {
-    background-color: rgba(26, 27, 38, 0.95);
-    border: 1px solid rgba(122, 162, 247, 0.3);
-    border-radius: 16px;
+  margin: 0px;
+  padding: 10px;
+  border: 1px solid #b4befe;
+  border-radius: 5px;
+  background-color: #1e1e2e;
 }
 
-#input {
-    background-color: rgba(22, 22, 30, 0.9);
-    color: #c0caf5;
-    border: 1px solid rgba(122, 162, 247, 0.2);
-    border-radius: 10px;
-    padding: 8px 12px;
-    margin: 10px;
-    outline: none;
-}
-
-#input:focus {
-    border-color: rgba(122, 162, 247, 0.6);
-}
-
-#input::placeholder {
-    color: #414868;
-}
-
-#scroll {
-    margin: 0 8px 8px 8px;
-}
-
+/* Inner Box */
 #inner-box {
-    background: transparent;
+  margin: 5px;
+  padding: 10px;
+  border: none;
+  background-color: #1e1e2e;
 }
 
+/* Outer Box */
 #outer-box {
-    padding: 8px;
+  margin: 5px;
+  padding: 10px;
+  border: none;
+  background-color: #1e1e2e;
+}
+
+/* Scroll */
+#scroll {
+  margin: 0px;
+  padding: 10px;
+  border: none;
+  background-color: #1e1e2e;
+}
+
+/* Input */
+#input {
+  margin: 5px 20px;
+  padding: 10px;
+  border: none;
+  border-radius: 0.1em;
+  color: #cdd6f4;
+  background-color: #1e1e2e;
+}
+
+#input image {
+  border: none;
+  color: #f38ba8;
+}
+
+#input * {
+  outline: 4px solid #f38ba8 !important;
+}
+
+/* Text */
+#text {
+  margin: 5px;
+  border: none;
+  color: #cdd6f4;
 }
 
 #entry {
-    background: transparent;
-    border-radius: 10px;
-    padding: 6px 10px;
-    margin: 2px 0;
-    color: #a9b1d6;
+  background-color: #1e1e2e;
 }
 
+#entry arrow {
+  border: none;
+  color: #b4befe;
+}
+
+/* Selected Entry */
 #entry:selected {
-    background-color: rgba(122, 162, 247, 0.15);
-    color: #c0caf5;
+  border: 0.11em solid #b4befe;
 }
 
-#entry:hover {
-    background-color: rgba(192, 202, 245, 0.08);
+#entry:selected #text {
+  color: #cba6f7;
 }
 
-#text {
-    color: inherit;
-    margin-left: 8px;
-}
-
-#img {
-    border-radius: 4px;
+#entry:drop(active) {
+  background-color: #b4befe !important;
 }

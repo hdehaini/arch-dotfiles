@@ -16,11 +16,12 @@
     ],
 
     "modules-right": [
-        "cpu",
-        "memory",
+        "custom/system",
+        "custom/notifications",
         "pulseaudio",
         "network",
-        "tray"
+	"tray",
+	"custom/power"
     ],
 
     "hyprland/workspaces": {
@@ -41,18 +42,35 @@
     },
     "clock": {
         "format": "󰃰  {:%a, %b %d  %I:%M %p}",
-        "tooltip-format": "<big>{:%B %Y}</big>\n<tt><small>{calendar}</small></tt>"
+	// "format-alt": "󰃰  {:%I:%M:%S %p}",
+        "on-click": "bash ~/.config/eww/scripts/toggle-clock.sh",
+        "on-click-right": "mode",
+        "tooltip-format": "<big>{:%B %Y}</big>\n<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#c0caf5'><b>{}</b></span>",
+                "days": "<span color='#a9b1d6'>{}</span>",
+                "weekdays": "<span color='#7aa2f7'><b>{}</b></span>",
+                "today": "<span color='#7dcfff'><b><u>{}</u></b></span>"
+            }
+        },
+        "interval": 1
     },
-    "cpu": {
-        "format": "󰻠  {usage}%",
-        "tooltip": true,
-        "interval": 2
+    "custom/system": {
+        "exec": "bash ~/.config/waybar/scripts/system-status.sh",
+        "return-type": "json",
+        "interval": 2,
+        "on-click": "bash ~/.config/eww/scripts/toggle-system.sh"
     },
 
-    "memory": {
-        "format": "󰍛  {percentage}%",
-        "tooltip-format": "{used:0.1f}GB / {total:0.1f}GB",
-        "interval": 2
+    "custom/notifications": {
+        "exec": "bash ~/.config/waybar/scripts/notifications-status.sh",
+        "return-type": "json",
+        "interval": 3,
+        "on-click": "bash ~/.config/eww/scripts/toggle-notif.sh",
+        "on-click-right": "bash ~/.config/eww/scripts/open-notification-center.sh"
     },
 
     "pulseaudio": {
@@ -61,7 +79,8 @@
         "format-icons": {
             "default": ["󰕿", "󰖀", "󰕾"]
         },
-        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-click": "bash ~/.config/eww/scripts/toggle-vol.sh",
+        "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
         "scroll-step": 1
     },
 
@@ -70,8 +89,17 @@
         "format-ethernet": "󰈀  ethernet",
         "format-disconnected": "󰤭  offline",
         "tooltip-format": "{ipaddr}  {signalStrength}%",
+	"on-click": "bash ~/.config/eww/scripts/toggle-net.sh",
+	"on-click-right": "kitty --class nmtui-popup nmtui",
         "interval": 5
     },
+
+    "custom/power": {
+        "format": "⏻",
+        "on-click": "bash ~/.config/eww/scripts/toggle-power.sh",
+        "tooltip": false
+    },
+
     "tray": {
         "spacing": 8
     }
