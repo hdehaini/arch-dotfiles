@@ -1,4 +1,5 @@
 amdgpu_top
+an-anime-game-launcher-bin
 aws-cli-v2
 awww
 base
