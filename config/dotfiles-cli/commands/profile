@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# DESC: Manage desktop profiles (wallpaper, palette, dock contents).
+
+set -u
+SELF_NAME="${SELF_NAME:-$(basename "$(readlink -f "$0")")}"
+SWITCH="$HOME/.config/profiles/switch.sh"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME profile — manage desktop profiles.
+
+Usage: $SELF_NAME profile <action> [args...]
+
+Actions:
+  list                          List all profiles
+  current                       Show the active profile name
+  switch <name>                 Activate the named profile
+  apply                         Re-apply the current profile (used at login)
+  menu                          Open the wofi profile picker
+  new <name>                    Scaffold a new profile
+  delete <name> [--force]       Delete a profile (prompts unless --force)
+  rename <old> <new>            Rename a profile
+
+A profile lives at ~/.config/profiles/<name>/. See
+~/.config/profiles/README.md for what goes inside.
+EOF
+}
+
+action="${1:-}"
+case "$action" in
+    "" | -h | --help | help) show_help; exit 0 ;;
+esac
+shift
+
+case "$action" in
+    list)    exec "$SWITCH" --list ;;
+    current) exec "$SWITCH" --current ;;
+    apply)   exec "$SWITCH" --apply ;;
+    menu)    exec "$SWITCH" --menu ;;
+    switch)  exec "$SWITCH" "$@" ;;
+    new)     exec "$SWITCH" --new "$@" ;;
+    delete)  exec "$SWITCH" --delete "$@" ;;
+    rename)  exec "$SWITCH" --rename "$@" ;;
+    *)
+        echo "$SELF_NAME profile: unknown action: $action" >&2
+        echo "Try \`$SELF_NAME profile --help\`." >&2
+        exit 1
+        ;;
+esac

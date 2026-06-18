@@ -1,0 +1,77 @@
+;;; PRAYER TOOLTIPS WINDOW & WIDGET
+
+(defwidget prayer_dashboard []
+  (box :orientation "v"
+       :space-evenly true
+       :spacing 5
+       :class "weather-tooltips-container"
+
+    (box :orientation "h"
+         :space-evenly false
+         :spacing 5 
+
+      (box :orientation "v"
+           :space-evenly false
+           :spacing 0
+           :hexpand true
+           :halign "start"
+         (label :class "weather-text-tooltip"
+                :xalign 0
+                :text "${prayer_data.city}")
+         (label :class "weather-temp-now"
+                :xalign 0
+                :text "Next: ${prayer_data.next_name}") 
+      ) 
+
+      (box :orientation "v"
+           :space-evenly false
+           :spacing 0
+
+          (label :xalign 0.9 :class "icon-weather-tool" :text "${prayer_data.next_icon}")
+          (label :xalign 1 :class "" :text "${prayer_data.next_time}")
+          
+          (box :orientation "h"
+               :spacing 5 
+               :space-evenly false
+               :halign "end"
+              (label :class "weather-coord" :text "${prayer_data.lat}")
+              (label :class "weather-coord" :text "${prayer_data.long}")
+          )
+      )
+    )
+    
+    ;;; 5 DAILY PRAYERS TIMETABLE
+    (box :orientation "h"
+         :space-evenly true
+         :spacing 15
+      
+      (for entry in "${prayer_data.daily}"
+        (box :orientation "v"
+             :space-evenly false
+             :spacing 2
+             :class "${entry.is_next ? 'active-prayer-highlight' : 'normal-prayer-row'}"
+             
+          (label :text "${entry.name}" 
+                 :limit-width 7) 
+                 
+          (label :text "${entry.icon}")
+
+          (label :class "weather-temp" 
+                 :text "${entry.time}")
+        )
+      ) 
+    )
+  ) 
+)
+
+(defwindow prayer-tooltip-window
+  :monitor 0
+  :stacking "overlay"
+  :focusable false
+  :exclusive false
+  :windowtype "dialog"
+  :geometry (geometry 
+    :x "240px"
+    :y "10px"
+    :anchor "top left")
+  (prayer_dashboard))

@@ -1,218 +1,218 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ============================================================
-# bootstrap.sh — Deploy dotfiles on a new Arch Linux machine
-# Run after cloning the repo:
-#   git clone <your-repo-url> ~/arch-dotfiles
+# bootstrap.sh — Deploy this dotfiles repo on a fresh Arch install.
+#
+# Run after cloning:
+#   git clone <repo-url> ~/arch-dotfiles
 #   cd ~/arch-dotfiles
 #   bash bootstrap.sh
+#
+# Modes:
+#   ./bootstrap.sh           Install required packages + link configs.
+#   ./bootstrap.sh --full    Also restore every package in packages.txt /
+#                            packages-aur.txt (games, browsers, the works).
+#   ./bootstrap.sh --link    Only symlink configs; skip package install.
+#                            Use this if you ran it once and just want to
+#                            re-link after collect.sh added new tools.
 # ============================================================
+set -eu
 
-set -e
+DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+CONFIG_IN="$DOTFILES_DIR/config"
+HOME_IN="$DOTFILES_DIR/home"
 
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="$DOTFILES_DIR/config"
-HOME_DIR="$DOTFILES_DIR/home"
+mode=normal
+for arg in "$@"; do
+    case "$arg" in
+        --full) mode=full ;;
+        --link) mode=link ;;
+        -h|--help)
+            sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0 ;;
+        *) echo "unknown flag: $arg" >&2; exit 1 ;;
+    esac
+done
 
-echo "╔══════════════════════════════════════════╗"
-echo "║     Arch Dotfiles Bootstrap Script       ║"
-echo "╚══════════════════════════════════════════╝"
-echo ""
-echo "Dotfiles directory: $DOTFILES_DIR"
-echo ""
+banner() {
+    echo
+    echo "── $* ──"
+}
 
-# ── Helper functions ──
 confirm() {
-    read -rp "$1 [y/N] " response
-    [[ "$response" =~ ^[Yy]$ ]]
+    read -rp "$1 [y/N] " r
+    [[ "$r" =~ ^[Yy]$ ]]
 }
 
 symlink() {
-    local src="$1"
-    local dest="$2"
-    mkdir -p "$(dirname "$dest")"
-    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-        echo "  ! Backing up existing $dest → $dest.bak"
-        mv "$dest" "$dest.bak"
+    local src="$1" dst="$2"
+    mkdir -p "$(dirname "$dst")"
+    if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+        mv "$dst" "$dst.bak"
+        echo "    backed up existing → $dst.bak"
     fi
-    ln -sf "$src" "$dest"
-    echo "  ✓ Linked $dest"
+    ln -sfn "$src" "$dst"
+    echo "    ✓ $dst"
 }
 
-# ── Step 1: Install paru ──
-echo "── Step 1: Install paru (AUR helper) ──"
-if ! command -v paru &>/dev/null; then
-    echo "  Installing paru..."
-    sudo pacman -S --needed git base-devel
-    git clone https://aur.archlinux.org/paru.git /tmp/paru
-    cd /tmp/paru && makepkg -si
-    cd "$DOTFILES_DIR"
-    echo "  ✓ paru installed"
-else
-    echo "  ✓ paru already installed"
-fi
-
-# ── Step 2: Enable multilib ──
-echo ""
-echo "── Step 2: Enable multilib repo ──"
-if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-    echo "  Enabling multilib..."
-    sudo sed -i '/^#\[multilib\]/,/^#Include/{s/^#//}' /etc/pacman.conf
-    sudo pacman -Sy
-    echo "  ✓ multilib enabled"
-else
-    echo "  ✓ multilib already enabled"
-fi
-
-# ── Step 3: Install official packages ──
-echo ""
-echo "── Step 3: Install official repo packages ──"
+# --------------------------------------------------------------------------
+# Required packages — the minimum needed for the bar, profiles, scripts,
+# and core desktop to work. Keep this in sync with what the scripts in
+# config/eww/scripts, config/profiles, and config/dotfiles-cli actually
+# call (`bash audit-tools.sh` if you want a fresh check).
+# --------------------------------------------------------------------------
 OFFICIAL_PACKAGES=(
-    # System
-    base-devel vim networkmanager ntfs-3g sudo
-    # Audio
-    pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
-    # GPU (AMD)
-    mesa vulkan-radeon libva-mesa-driver
-    # Desktop
-    hyprland waybar kitty wofi hyprpaper dunst
-    polkit-gnome xdg-desktop-portal-hyprland
+    # system base
+    base-devel git sudo networkmanager network-manager-applet ntfs-3g
+    polkit-gnome xdg-desktop-portal-hyprland xdg-utils
     qt5-wayland qt6-wayland qt6-5compat
-    # Login
+
+    # audio
+    pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
+    pavucontrol pamixer
+
+    # GPU drivers (AMD here; swap for nvidia-* if needed)
+    mesa vulkan-radeon libva-mesa-driver
+
+    # display manager + login
     sddm
-    # Apps
-    thunar wl-clipboard grim slurp
-    firefox steam lutris gamemode mangohud
-    pavucontrol imagemagick
-    # GTK
-    nwg-look
-    # Fonts
+
+    # Hyprland desktop
+    hyprland hyprsunset awww kitty wofi dunst nemo
+
+    # screenshot / clipboard
+    grim slurp wl-clipboard
+
+    # scripting deps used by eww + profiles + dotfiles-cli
+    socat jq inotify-tools libnotify
+    imagemagick brightnessctl playerctl
+    matugen
+    python python-pip
+
+    # fonts
     noto-fonts noto-fonts-emoji
+    ttf-jetbrains-mono ttf-jetbrains-mono-nerd
+
+    # containers (for selfhosted services like odysseus)
+    docker docker-compose
+
+    # misc tooling the configs reference
+    fastfetch nwg-look xsettingsd
+
+    # browsers / general apps
+    firefox
 )
 
-echo "  Installing ${#OFFICIAL_PACKAGES[@]} packages..."
-sudo pacman -S --needed "${OFFICIAL_PACKAGES[@]}"
-echo "  ✓ Official packages installed"
-
-# ── Step 4: Install AUR packages ──
-echo ""
-echo "── Step 4: Install AUR packages ──"
 AUR_PACKAGES=(
-    ttf-jetbrains-mono-nerd
-    ttf-input-nerd
-    tokyonight-gtk-theme-git
+    # eww (widget toolkit — git build because GTK build needs latest)
+    eww
+
+    # hyprland helpers
+    cursor-clip-git
+    hyprshutdown
+
+    # cursor + icon themes referenced by your configs
+    bibata-cursor-theme-bin
     papirus-icon-theme
     papirus-folders-git
-    bibata-cursor-theme-bin
-    visual-studio-code-bin
-    discord
-    heroic-games-launcher-bin
-    proton-ge-custom-bin
-    sddm-theme-tokyo-night-git
+
+    # network/dmenu integration used in wofi flows
+    networkmanager-dmenu-git
 )
 
-echo "  Installing ${#AUR_PACKAGES[@]} AUR packages..."
-paru -S --needed "${AUR_PACKAGES[@]}"
-echo "  ✓ AUR packages installed"
+# --------------------------------------------------------------------------
 
-# ── Step 5: Set Papirus folder colors ──
-echo ""
-echo "── Step 5: Set Papirus folder colors ──"
-papirus-folders -C indigo --theme Papirus-Dark
-echo "  ✓ Papirus folders set to indigo"
+echo "╔══════════════════════════════════════════╗"
+echo "║   Arch Dotfiles Bootstrap (Hyprland +    ║"
+echo "║   eww + per-machine CLI)                 ║"
+echo "╚══════════════════════════════════════════╝"
+echo
+echo "Repo:  $DOTFILES_DIR"
+echo "Mode:  $mode"
 
-# ── Step 6: Symlink config files ──
-echo ""
-echo "── Step 6: Symlinking config files ──"
+if [ "$mode" != "link" ]; then
+    banner "Install paru (AUR helper)"
+    if ! command -v paru >/dev/null; then
+        sudo pacman -S --needed --noconfirm git base-devel
+        tmp=$(mktemp -d)
+        git clone https://aur.archlinux.org/paru.git "$tmp/paru"
+        ( cd "$tmp/paru" && makepkg -si --noconfirm )
+        rm -rf "$tmp"
+    fi
+    echo "  ✓ paru ready"
 
-# Hyprland
-if [ -d "$CONFIG_DIR/hypr" ]; then
-    symlink "$CONFIG_DIR/hypr" "$HOME/.config/hypr"
+    banner "Enable multilib repo"
+    if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+        sudo sed -i '/^#\[multilib\]/,/^#Include/{s/^#//}' /etc/pacman.conf
+        sudo pacman -Sy
+    fi
+    echo "  ✓ multilib enabled"
+
+    banner "Install official-repo packages (${#OFFICIAL_PACKAGES[@]})"
+    sudo pacman -S --needed "${OFFICIAL_PACKAGES[@]}"
+
+    banner "Install AUR packages (${#AUR_PACKAGES[@]})"
+    paru -S --needed "${AUR_PACKAGES[@]}"
+
+    if [ "$mode" = "full" ]; then
+        banner "FULL mode: restore everything from packages*.txt"
+        if [ -f "$DOTFILES_DIR/packages.txt" ]; then
+            sudo pacman -S --needed - < "$DOTFILES_DIR/packages.txt" || true
+        fi
+        if [ -f "$DOTFILES_DIR/packages-aur.txt" ]; then
+            paru -S --needed - < "$DOTFILES_DIR/packages-aur.txt" || true
+        fi
+    fi
 fi
 
-# Waybar
-if [ -d "$CONFIG_DIR/waybar" ]; then
-    symlink "$CONFIG_DIR/waybar" "$HOME/.config/waybar"
+banner "Symlink ~/.config dirs"
+for d in "$CONFIG_IN"/*/; do
+    name="$(basename "$d")"
+    symlink "$d" "$HOME/.config/$name"
+done
+
+banner "Symlink ~/.config files"
+for f in "$CONFIG_IN"/*; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    symlink "$f" "$HOME/.config/$name"
+done
+
+banner "Symlink \$HOME files / dirs"
+for f in "$HOME_IN"/* "$HOME_IN"/.[!.]*; do
+    [ -e "$f" ] || continue
+    name="$(basename "$f")"
+    symlink "$f" "$HOME/$name"
+done
+
+banner "Install per-machine CLI ($(hostname))"
+if [ -x "$HOME/.config/dotfiles-cli/install.sh" ]; then
+    "$HOME/.config/dotfiles-cli/install.sh"
 fi
 
-# Kitty
-if [ -d "$CONFIG_DIR/kitty" ]; then
-    symlink "$CONFIG_DIR/kitty" "$HOME/.config/kitty"
-fi
-
-# Wofi
-if [ -d "$CONFIG_DIR/wofi" ]; then
-    symlink "$CONFIG_DIR/wofi" "$HOME/.config/wofi"
-fi
-
-# Dunst
-if [ -d "$CONFIG_DIR/dunst" ]; then
-    symlink "$CONFIG_DIR/dunst" "$HOME/.config/dunst"
-fi
-
-# GTK
-if [ -d "$CONFIG_DIR/gtk-3.0" ]; then
-    symlink "$CONFIG_DIR/gtk-3.0" "$HOME/.config/gtk-3.0"
-fi
-if [ -d "$CONFIG_DIR/gtk-4.0" ]; then
-    symlink "$CONFIG_DIR/gtk-4.0" "$HOME/.config/gtk-4.0"
-fi
-
-# Cursor
-if [ -d "$HOME_DIR/.icons" ]; then
-    symlink "$HOME_DIR/.icons/default" "$HOME/.icons/default"
-fi
-
-# GTK2
-if [ -f "$HOME_DIR/.gtkrc-2.0" ]; then
-    symlink "$HOME_DIR/.gtkrc-2.0" "$HOME/.gtkrc-2.0"
-fi
-
-echo "  ✓ All configs symlinked"
-
-# ── Step 7: Enable services ──
-echo ""
-echo "── Step 7: Enabling system services ──"
+banner "Enable system services"
 sudo systemctl enable --now NetworkManager
 sudo systemctl enable sddm
+sudo systemctl enable --now docker || true
 systemctl --user enable --now pipewire pipewire-pulse wireplumber
-echo "  ✓ Services enabled"
 
-# ── Step 8: Apply GTK settings ──
-echo ""
-echo "── Step 8: Applying GTK theme ──"
-gsettings set org.gnome.desktop.interface gtk-theme "Tokyonight-Dark"
-gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark"
-gsettings set org.gnome.desktop.interface cursor-theme "Bibata-Modern-Ice"
-gsettings set org.gnome.desktop.interface font-name "JetBrainsMono Nerd Font 11"
-echo "  ✓ GTK theme applied"
+banner "Apply GTK theme defaults"
+gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"      || true
+gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark"     || true
+gsettings set org.gnome.desktop.interface cursor-theme "Bibata-Modern-Ice" || true
+gsettings set org.gnome.desktop.interface font-name "JetBrainsMono Nerd Font 11" || true
 
-# ── Step 9: SDDM theme ──
-echo ""
-echo "── Step 9: SDDM theme ──"
-sudo mkdir -p /etc/sddm.conf.d
-sudo tee /etc/sddm.conf.d/sddm.conf > /dev/null <<EOF
-[Theme]
-Current=tokyo-night-sddm
-
-[General]
-DisplayServer=x11
-
-[Users]
-DefaultUser=$(whoami)
-EOF
-echo "  ✓ SDDM configured"
-echo "  ! Note: Copy your login wallpaper to:"
-echo "    /usr/share/sddm/themes/tokyo-night-sddm/nebula-login.png"
-echo "    Then update Background= in the theme.conf"
-
-echo ""
+echo
 echo "╔══════════════════════════════════════════╗"
-echo "║           Bootstrap Complete!            ║"
+echo "║              All done.                   ║"
 echo "╚══════════════════════════════════════════╝"
-echo ""
-echo "  Reboot to start Hyprland via SDDM."
-echo "  Don't forget to:"
-echo "    1. Copy your wallpapers to ~/Pictures/wallpapers/"
-echo "    2. Update hyprpaper.conf with correct monitor names"
-echo "    3. Set your BIOS boot order (GRUB before Windows)"
-echo ""
+echo
+echo "Post-install todos:"
+echo "  • Drop wallpapers into ~/Pictures/wallpapers/"
+echo "  • Edit ~/.config/hypr/hyprland.conf monitor= lines for your displays"
+echo "  • Add yourself to the docker group: sudo usermod -aG docker \$USER"
+echo "  • Reboot. Hyprland starts via SDDM."
+echo
+echo "Then on first login:"
+echo "  $(hostname) --help          # your machine-named CLI"
+echo "  $(hostname) profile list    # see desktop profiles"
+echo "  $(hostname) profile menu    # SUPER+SHIFT+P picker"

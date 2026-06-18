@@ -1,0 +1,61 @@
+;;-----------------------------------------------------
+;; POWER MENU
+;;-----------------------------------------------------
+
+(defwidget power_menu_button [icon label cmd]
+  (button :class "power-menu-btn"
+          :tooltip label
+          :onclick cmd
+    (box :orientation "v"
+         :spacing 2
+         :space-evenly false
+         :halign "center"
+      (label :class "power-menu-icon" :text icon)
+      (label :class "power-menu-label" :text label))))
+
+(defwidget power_menu []
+  (box :class "power-menu"
+       :orientation "v"
+       :spacing 8
+       :space-evenly false
+    (label :class "power-menu-title" :text "Power")
+
+    (box :class "power-menu-row"
+         :orientation "h"
+         :spacing 8
+         :space-evenly false
+      (power_menu_button
+        :icon ""
+        :label "Lock"
+        :cmd "if command -v hyprlock >/dev/null 2>&1; then hyprlock; elif command -v swaylock >/dev/null 2>&1; then swaylock; elif command -v loginctl >/dev/null 2>&1; then loginctl lock-session; else notify-send 'Lock' 'No locker installed'; fi; ~/.config/eww//scripts/popup.sh close power_menu")
+      (power_menu_button
+        :icon "⏾"
+        :label "Sleep"
+        :cmd "systemctl suspend; ~/.config/eww//scripts/popup.sh close power_menu")
+      (power_menu_button
+        :icon ""
+        :label "Reboot"
+        :cmd "systemctl reboot; ~/.config/eww//scripts/popup.sh close power_menu"))
+
+    (box :class "power-menu-row"
+         :orientation "h"
+         :spacing 8
+         :space-evenly false
+      (power_menu_button
+        :icon "󰍃"
+        :label "Logout"
+        :cmd "hyprctl dispatch exit; ~/.config/eww//scripts/popup.sh close power_menu")
+      (power_menu_button
+        :icon ""
+        :label "Power"
+        :cmd "systemctl poweroff; ~/.config/eww//scripts/popup.sh close power_menu"))))
+
+(defwindow power_menu
+  :monitor 0
+  :geometry (geometry :x "0px" :y "0px" :anchor "center center")
+  :stacking "overlay"
+  :exclusive false
+  :focusable "none"
+  :windowtype "dialog"
+  :wm-ignore false
+  (power_menu))

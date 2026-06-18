@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Top-level dispatcher. Invoked through a hostname-named symlink in
+# ~/.local/bin/. The symlink's basename is the user-facing tool name and
+# is shown in all help text — so the same code reads as `nebula …` on one
+# machine and `friendpc …` on another with no edits.
+
+set -u
+
+# When invoked through a symlink, $0 is the symlink path; basename gives
+# the hostname-named tool. readlink -f resolves to the real script dir.
+SELF_NAME="$(basename "$0")"
+export SELF_NAME
+
+CLI_ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+COMMANDS_DIR="$CLI_ROOT/commands"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME — personal command-line helper for this machine's dotfiles.
+
+Usage: $SELF_NAME <command> [args...]
+       $SELF_NAME --help
+
+Commands:
+EOF
+    for cmd in "$COMMANDS_DIR"/*; do
+        [ -x "$cmd" ] || continue
+        name="$(basename "$cmd")"
+        # First non-blank, non-shebang, non-comment line after a leading
+        # '# DESC: ' marker is the summary shown here.
+        desc="$(awk '/^# DESC: / { sub(/^# DESC: /, ""); print; exit }' "$cmd")"
+        printf "  %-12s %s\n" "$name" "$desc"
+    done
+    cat <<EOF
+
+Run \`$SELF_NAME <command> --help\` for subcommand help.
+EOF
+}
+
+case "${1:-}" in
+    "" | -h | --help | help)
+        show_help
+        exit 0
+        ;;
+esac
+
+cmd="$1"; shift
+cmd_path="$COMMANDS_DIR/$cmd"
+
+if [ ! -x "$cmd_path" ]; then
+    echo "$SELF_NAME: unknown command: $cmd" >&2
+    echo "Try \`$SELF_NAME --help\`." >&2
+    exit 1
+fi
+
+exec "$cmd_path" "$@"

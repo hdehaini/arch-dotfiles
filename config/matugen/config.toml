@@ -1,0 +1,7 @@
+[config]
+# Sets the color palette type (choices: express, standard, extended)
+type = "standard"
+
+[templates.hyprland]
+input_path = '~/.config/matugen/templates/hyprland.conf'
+output_path = '~/.config/hypr/colors.conf'
