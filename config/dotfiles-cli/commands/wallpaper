@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# DESC: Wallpaper helpers — split a wide image, or set one monitor.
+
+set -u
+SELF_NAME="${SELF_NAME:-$(basename "$(readlink -f "$0")")}"
+SPLIT="$HOME/.config/profiles/split-wallpaper.sh"
+SET="$HOME/.config/profiles/set-wallpaper.sh"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME wallpaper — wallpaper helpers.
+
+Usage: $SELF_NAME wallpaper <action> [args...]
+
+Actions:
+  split <image> <profile> [left] [right]
+        Slice a wide image down the middle and drop the halves into the
+        profile (defaults: left=DP-3, right=HDMI-A-2).
+
+  set <image> <profile> <monitor>
+        Copy a single image to <profile>/wallpapers/<monitor>.<ext>,
+        replacing any previous wallpaper for that monitor.
+
+Common flags (work on both actions):
+  --apply           Activate the profile after writing files
+  --colors          Generate <profile>/colors.scss from the image (matugen)
+  --prefer <kind>   matugen --prefer hint (darkness, lightness, saturation,
+                    less-saturation, value, closest-to-fallback)
+EOF
+}
+
+action="${1:-}"
+case "$action" in
+    "" | -h | --help | help) show_help; exit 0 ;;
+esac
+shift
+
+case "$action" in
+    split) exec "$SPLIT" "$@" ;;
+    set)   exec "$SET"   "$@" ;;
+    *)
+        echo "$SELF_NAME wallpaper: unknown action: $action" >&2
+        echo "Try \`$SELF_NAME wallpaper --help\`." >&2
+        exit 1
+        ;;
+esac

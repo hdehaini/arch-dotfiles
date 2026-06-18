@@ -1,0 +1,90 @@
+PASTE THIS WHOLE FILE INTO CLAUDE (or any LLM with shell access) WHEN YOU WANT
+TO RE-AUDIT THE DOTFILES REPO AGAINST YOUR LIVE SYSTEM.
+
+================================================================================
+PROMPT START
+================================================================================
+
+I want you to re-audit my arch-dotfiles repo against my actual live system.
+Configs drift over time — I install new tools, drop old ones, change scripts.
+The repo's bootstrap.sh + collect.sh should reflect what's really being used,
+not what used to be used.
+
+Repo: /mnt/storage/Coding-Projects/Linux/arch-dotfiles
+Live config: $HOME/.config (everything I care about lives here)
+Hyprland config (the entrypoint for the whole desktop): $HOME/.config/hypr/hyprland.conf
+Custom helpers: $HOME/.config/profiles, $HOME/.config/eww, $HOME/.config/dotfiles-cli
+
+Here's what I want you to do, in order:
+
+1. INVENTORY
+   - List everything in ~/.config/ and classify each entry as:
+       a) USED — referenced by hyprland.conf, by one of our custom scripts
+          (config/eww/scripts/*, config/profiles/*, config/dotfiles-cli/*),
+          or set up by the desktop itself.
+       b) APP-MANAGED — auto-written by the app (Code, discord, mozilla,
+          htop, mpv, pulse, systemd, Thunar, xfce4, etc.). Skip from
+          tracking.
+       c) ORPHANED — config dirs for tools I no longer use. Flag these
+          and tell me the candidates for removal.
+   - grep hyprland.conf for `exec-once`, `bind = .*exec`, `$terminal/$menu/
+     $fileManager` to find every external command launched by the desktop.
+   - grep config/eww/scripts/, config/profiles/, config/dotfiles-cli/ for
+     external commands (anything in the form `command` after `if command -v`,
+     `which`, plain invocation in scripts).
+   - Map each external command to its Arch package (use `pacman -Qo` if it's
+     installed). Note official-repo vs AUR.
+
+2. UPDATE THE TRACKED LIST
+   - Open /mnt/storage/Coding-Projects/Linux/arch-dotfiles/collect.sh
+   - Update the CONFIG_DIRS, CONFIG_FILES, HOME_FILES, HOME_DIRS arrays
+     to match the USED set from step 1.
+   - Drop entries for things in the ORPHANED set.
+   - Make sure EXCLUDES still keeps venvs, __pycache__, caches, and any
+     other regenerated-on-demand state out of the tracked tree.
+
+3. UPDATE THE PACKAGE LIST
+   - Open /mnt/storage/Coding-Projects/Linux/arch-dotfiles/bootstrap.sh
+   - Update OFFICIAL_PACKAGES and AUR_PACKAGES to match the packages
+     actually needed by step 1's USED commands.
+   - Don't try to be exhaustive (that's what `--full` mode is for); just
+     cover the minimum required to make the desktop + custom scripts work.
+   - Move things between the two arrays if a package moved between extra
+     and AUR (this has happened with hyprsunset, matugen, awww — they
+     used to be AUR, now they're in extra).
+
+4. UPDATE THE README
+   - Open /mnt/storage/Coding-Projects/Linux/arch-dotfiles/README.md
+   - Refresh the "What's in here" table if I added new tools.
+   - Refresh "Manual one-time tweaks" if I removed any (e.g., the SDDM
+     theme is still there).
+   - Make sure the fresh-Arch install steps still produce a working desktop.
+
+5. RE-SYNC
+   - Run `bash /mnt/storage/Coding-Projects/Linux/arch-dotfiles/collect.sh`
+     to actually copy the latest config bits into the repo.
+   - Show me `git -C /mnt/storage/Coding-Projects/Linux/arch-dotfiles status`
+     so I can review.
+
+6. REPORT
+   At the end, give me a concise report:
+   - What's now tracked (delta from before)
+   - What's been dropped (delta from before, with reasons — "you removed
+     waybar usage from hyprland.conf", etc.)
+   - Which packages moved between official/AUR
+   - Any orphaned ~/.config dirs I should consider deleting (don't delete
+     them yourself; just tell me)
+   - Any TODOs that came up while you were looking around (broken scripts,
+     hardcoded paths from a previous machine, leftover commented-out code)
+
+RULES:
+- Don't touch INSTALL-ARCH.md — that's a separate long-form doc.
+- Don't run `git commit` or `git push`. Just leave the changes staged so I
+  can review.
+- If a script references a tool that isn't installed, tell me (don't
+  silently drop it — I may have just removed the tool by accident).
+- Keep changes minimal; this isn't a refactor pass.
+
+================================================================================
+PROMPT END
+================================================================================

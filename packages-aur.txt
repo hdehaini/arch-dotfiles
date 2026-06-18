@@ -1,5 +1,5 @@
-an-anime-game-launcher-bin
 bibata-cursor-theme-bin
+claude-code-stable-bin
 cursor-clip-git
 eww-git
 fabric-cli-git
@@ -7,6 +7,7 @@ heroic-games-launcher-bin
 matugen-bin
 minecraft-launcher
 mqtt-explorer-bin
+nemo-preview
 networkmanager-dmenu-git
 papirus-folders-git
 paru
@@ -20,4 +21,5 @@ splashtop-business
 tokyonight-gtk-theme-git
 ttf-icomoon-feather
 visual-studio-code-bin
+woeusb-ng
 zoom
