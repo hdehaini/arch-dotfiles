@@ -150,6 +150,22 @@
   )
 )
 
+;; Sleep / Restart / Shut down, in the order other desktops use.
+(defwidget power_row []
+  (box :class "power-row"
+       :orientation "h"
+       :spacing 10
+       :space-evenly true
+    (button :class "power-btn"
+            :onclick "~/.config/eww//scripts/power.sh sleep & disown"
+      (label :text "󰤄"))
+    (button :class "power-btn"
+            :onclick "~/.config/eww//scripts/power.sh restart & disown"
+      (label :text "󰜉"))
+    (button :class "power-btn shutdown"
+            :onclick "~/.config/eww//scripts/power.sh shutdown & disown"
+      (label :text "󰐥"))))
+
 (defwidget control_center []
   (box :class "control-center-container"
        :orientation "v"
@@ -186,6 +202,9 @@
                   :value {system_status.vol_pct}
                   :onchange "pactl set-sink-volume @DEFAULT_SINK@ {}%")
     )
+
+    (separator)
+    (power_row)
   )
 )
 

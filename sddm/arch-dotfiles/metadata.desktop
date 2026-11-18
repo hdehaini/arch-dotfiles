@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=arch-dotfiles
+Description=Login screen for the arch-dotfiles desktop: blurred profile wallpaper, clock, and colors from the active profile
+Author=arch-dotfiles
+License=MIT
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=arch-dotfiles
+Theme-API=2.0
+QtVersion=6

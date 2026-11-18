@@ -1,0 +1,9 @@
+# Your location, for the weather and prayer-time widgets.
+# Copy this file to location.conf (next to it) and edit it. location.conf
+# is per machine and not committed, so a laptop can have its own.
+# City-level coordinates are plenty — look them up on any map.
+CITY="San Diego"
+COUNTRY_CODE="US"
+LATITUDE=32.72
+LONGITUDE=-117.16
+TEMP_UNIT=fahrenheit   # or celsius

@@ -1,4 +1,4 @@
-Profile: chill
+Profile: Space
 
 Drop files into this folder to customize:
   wallpapers/<monitor>.<ext>   per-monitor wallpaper (any image awww accepts)
@@ -9,5 +9,5 @@ Drop files into this folder to customize:
 
 Anything you do not provide falls back to ~/.config/profiles/_defaults/.
 
-Activate with:   switch.sh chill
+Activate with:   switch.sh Space
 Or pick with:    SUPER+SHIFT+P

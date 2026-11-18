@@ -30,6 +30,8 @@
 
 .tab-button {
   padding: 8px 12px;
+  border-bottom: 3px solid transparent;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
 }
 
 .tab-button:hover {
@@ -161,14 +163,14 @@
 }
 
 .info-text {
-  font-family: "JetBrains Mono Nerd Font", sans-serif;
+  font-family: "Inter Nerd Font";
   font-size: 12px;
   font-weight: 500;
   color: $on-surface;
 }
 
 .info-weather {
-  font-family: "JetBrains Mono Nerd Font", sans-serif;
+  font-family: "Inter Nerd Font";
   font-size: 18px;
   font-weight: bold;
   color: $secondary;
@@ -231,7 +233,7 @@
 }
 
 .cal-widget {
-  font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
+  font-family: "Inter Nerd Font", "Noto Sans", sans-serif;
   font-size: 10px;
   padding: 5px;
 
@@ -279,23 +281,33 @@
 }
 
 .clock-time {
-  font-family: "JetBrains Mono Nerd Font", monospace;
+  font-family: "Inter Nerd Font", monospace;
   font-size: 36px;
   font-weight: bold;
   color: $on-surface;
 }
 
 .clock-separator {
-  font-family: "JetBrains Mono Nerd Font", monospace;
+  font-family: "Inter Nerd Font", monospace;
   font-size: 28px;
   font-weight: bold;
   color: $primary;
-  margin-top: -10px;
-  margin-bottom: -10px;
+  margin-bottom: 3px;   /* sit the colon on the digits' middle */
+}
+
+.clock-seconds {
+  color: $on-surface-variant;
+}
+
+.clock-ampm {
+  font-size: 14px;
+  font-weight: 700;
+  color: $on-surface-variant;
+  margin: 0 0 9px 4px;
 }
 
 .clock-date {
-  font-family: "JetBrains Mono Nerd Font", sans-serif;
+  font-family: "Inter Nerd Font";
   font-size: 12px;
   font-weight: 500;
   color: $on-surface-variant;
@@ -520,3 +532,64 @@
   font-weight: 700;
   padding: 0px 0px 10px 0px;
 }
+
+/* ========================================
+   HARDWARE CARDS (Performance tab)
+   ======================================== */
+
+.hw-grid {
+  min-width: 600px;
+}
+
+.hw-card {
+  padding: 12px 14px;
+  background-color: transparentize($surface-container-low, 0.2);
+  border-radius: 10px;
+  border: 1.5px solid $outline-variant;
+}
+
+.hw-card-icon {
+  font-family: "Inter Nerd Font Propo", "Font Awesome 7 Free Solid";
+  font-size: 26px;
+  min-width: 34px;
+}
+.hw-card-icon.cpu-color  { color: $tertiary; }
+.hw-card-icon.gpu-color  { color: $secondary; }
+.hw-card-icon.mem-color  { color: $primary; }
+.hw-card-icon.disk-color { color: $inverse-primary; }
+
+.hw-card-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: $on-surface;
+}
+
+.hw-card-sub,
+.hw-card-detail {
+  font-size: 11px;
+  color: $on-surface-variant;
+}
+
+.hw-card-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: $on-surface;
+}
+.hw-card-value.warm { color: $tertiary; }
+.hw-card-value.hot  { color: $error; }
+
+.hw-card-bar trough {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: $surface-container-highest;
+}
+.hw-card-bar progress {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: $primary;
+}
+.hw-card-bar.cpu-color progress  { background-color: $tertiary; }
+.hw-card-bar.gpu-color progress  { background-color: $secondary; }
+.hw-card-bar.disk-color progress { background-color: $inverse-primary; }
+.hw-card-bar.warm progress { background-color: $tertiary; }
+.hw-card-bar.hot progress  { background-color: $error; }

@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+# DESC: Packages — list, install, remove, clean caches, sync with your dotfiles.
+
+set -u
+. "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+
+LIST="$DOTFILES_DIR/packages.txt"
+LIST_AUR="$DOTFILES_DIR/packages-aur.txt"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME packages — install, remove and look through your packages.
+
+Usage: $SELF_NAME packages [action] [flags]
+
+Actions:
+  list [flags]          Packages you installed yourself (the default, so
+                        "list" can be left out: $SELF_NAME packages --size)
+  search <word>         Installed packages whose name or description match
+  install <package>...  Install from the official repos or the AUR
+  remove <package>...   Uninstall, along with dependencies nothing else needs
+  remove --orphans      Uninstall every orphan (see list --orphans)
+  clean                 Shrink the package caches (pacman + AUR builds)
+  diff                  What changed since the lists in your dotfiles repo
+                        were last saved (packages.txt, packages-aur.txt)
+  save                  Rewrite those lists from what's installed now
+
+Flags for list (mix and match):
+  --size      Show how much storage each one takes, biggest first, plus a
+              total. (Just the package itself, not its dependencies.)
+  --recent    Show when each was installed, newest first
+  --desc      Show a one-line description of each
+  --all       Include packages that were installed as dependencies
+  --orphans   Only dependencies that nothing needs anymore
+  --aur       Only AUR packages
+  --repo      Only packages from the official repos
+
+Examples:
+  $SELF_NAME packages --size                 what's taking up space
+  $SELF_NAME packages --all --size | head    the biggest, dependencies included
+  $SELF_NAME packages --recent --desc        what did I install lately, and what is it
+  $SELF_NAME packages remove burpsuite dirb
+EOF
+}
+
+in_columns() {
+    if [ -t 1 ]; then column -c "${COLUMNS:-$(tput cols 2>/dev/null || echo 100)}"; else cat; fi
+}
+
+# Every installed package, from pacman's local database:
+#   name<TAB>bytes<TAB>installed (YYYY-MM-DDTHH:MM)<TAB>explicit(1/0)<TAB>aur(1/0)<TAB>description
+# The database's install date resets on every upgrade, so the date comes
+# from the last "installed" line in pacman.log when there is one.
+package_table() {
+    awk -F'\t' -v OFS='\t' '
+        FILENAME == "-" { aur[$1] = 1; next }      # AUR names (stdin)
+        FILENAME ~ /pacman\.log$/ {
+            if ($0 ~ /\] \[ALPM\] installed /) {
+                split($0, w, " "); installed[w[4]] = substr($0, 2, 16)
+            }
+            next
+        }
+        FNR == 1 && name != "" { emit() }
+        /^%NAME%$/        { getline; name = $0 }
+        /^%DESC%$/        { getline; desc = $0 }
+        /^%SIZE%$/        { getline; size = $0 }
+        /^%INSTALLDATE%$/ { getline; date = $0 }
+        /^%REASON%$/      { getline; reason = $0 }
+        END { if (name != "") emit() }
+        function emit() {
+            when = (name in installed) ? installed[name] : strftime("%Y-%m-%dT%H:%M", date + 0)
+            print name, size + 0, when, (reason == "1" ? 0 : 1), (name in aur ? 1 : 0), desc
+            name = desc = size = date = reason = ""
+        }' - /var/log/pacman.log /var/lib/pacman/local/*/desc < <(pacman -Qqm)
+}
+
+do_list() {
+    local size=0 recent=0 desc=0 all=0 orphans=0 source=""
+    for a in "$@"; do
+        case "$a" in
+            --size|--storage)  size=1 ;;
+            --recent|--date)   recent=1 ;;
+            --desc)            desc=1 ;;
+            --all)             all=1 ;;
+            --orphans)         orphans=1; all=1 ;;
+            --aur|--repo)      source="${a#--}" ;;
+            *) die "unknown flag: $a (try: $SELF_NAME packages --help)" ;;
+        esac
+    done
+
+    local rows
+    rows="$(package_table | awk -F'\t' -v all="$all" -v src="$source" '
+        (all || $4 == 1) && (src == "" || (src == "aur") == ($5 == 1))')"
+    if [ "$orphans" = 1 ]; then
+        rows="$(awk -F'\t' 'NR == FNR { o[$1]; next } $1 in o' <(pacman -Qqdt 2>/dev/null) - <<<"$rows")"
+        [ -n "$rows" ] || { echo "no orphans — nothing to clean up"; return; }
+    fi
+    [ -n "$rows" ] || { echo "no packages match"; return; }
+
+    # No extra columns asked for: just names, grouped by source.
+    if [ "$size$recent$desc" = "000" ]; then
+        local repo aur
+        repo="$(awk -F'\t' '$5 == 0 {print $1}' <<<"$rows")"
+        aur="$(awk -F'\t' '$5 == 1 {print $1}' <<<"$rows")"
+        if [ -n "$repo" ] && [ "$source" != aur ]; then
+            [ -z "$source" ] && header "Official repos ($(grep -c . <<<"$repo"))"
+            in_columns <<<"$repo"
+        fi
+        if [ -n "$aur" ] && [ "$source" != repo ]; then
+            [ -z "$source" ] && header "AUR / other ($(grep -c . <<<"$aur"))"
+            in_columns <<<"$aur"
+        fi
+        if [ -z "$source" ] && [ "$all" = 0 ]; then
+            printf '\n%s%s installed in total, counting dependencies (--all shows them)%s\n' \
+                "$C_DIM" "$(pacman -Qq | wc -l)" "$C_RESET"
+        fi
+        return
+    fi
+
+    # Table view. Sort by date if --recent, otherwise by size if --size.
+    local sorted
+    if   [ "$recent" = 1 ]; then sorted="$(sort -t$'\t' -k3,3r <<<"$rows")"
+    elif [ "$size" = 1 ];   then sorted="$(sort -t$'\t' -k2,2nr <<<"$rows")"
+    else sorted="$(sort -t$'\t' -k1,1 <<<"$rows")"; fi
+
+    local width name bytes when expl isaur d total=0 count=0 line used room cols
+    width="$(cut -f1 <<<"$sorted" | awk '{ if (length > m) m = length } END { print m }')"
+    cols="${COLUMNS:-$(tput cols 2>/dev/null || echo 120)}"
+    # Space left for the description after the other columns.
+    used=$(( 2 + width + (size ? 11 : 0) + (recent ? 12 : 0) + (${#source} ? 0 : 6) + 2 ))
+    room=$(( cols - used )); [ "$room" -lt 20 ] && room=20
+    # One awk pass does all the formatting (fast even with --all).
+    awk -F'\t' -v w="$width" -v size="$size" -v recent="$recent" -v desc="$desc" \
+        -v showsrc="$([ -z "$source" ] && echo 1 || echo 0)" -v room="$room" \
+        -v dim="$C_DIM" -v bold="$C_BOLD" -v reset="$C_RESET" '
+        function human(b,   u, i) {
+            split("B KB MB GB TB", u, " "); i = 1
+            while (b >= 1024 && i < 5) { b /= 1024; i++ }
+            return (i == 1) ? sprintf("%dB", b) : sprintf("%.1f%s", b, u[i])
+        }
+        {
+            line = sprintf("  %-" w "s", $1)
+            if (size)    line = line sprintf("  %9s", human($2))
+            if (recent)  line = line "  " substr($3, 1, 10)
+            if (showsrc) line = line sprintf("  %s%-4s%s", dim, ($5 == 1 ? "AUR" : "repo"), reset)
+            if (desc) {
+                d = $6
+                if (length(d) > room) d = substr(d, 1, room - 1) "…"
+                line = line "  " dim d reset
+            }
+            print line
+            total += $2; count++
+        }
+        END {
+            if (size) printf "\n  %s%d packages, %s in total%s\n", bold, count, human(total), reset
+            else      printf "\n  %s%d packages%s\n", dim, count, reset
+        }' <<<"$sorted"
+}
+
+do_search() {
+    [ $# -ge 1 ] || die "usage: $SELF_NAME packages search <word>"
+    pacman -Qs "$@" || echo "no installed package matches: $*"
+}
+
+
+# Show additions/removals between a saved list and what's installed now.
+compare() {
+    local title="$1" file="$2" now="$3" added removed
+    if [ ! -f "$file" ]; then
+        warn "$title: $file doesn't exist yet (run: $SELF_NAME packages save)"
+        return
+    fi
+    added="$(comm -13 <(sort -u "$file") <(sort -u <<<"$now") | grep . || true)"
+    removed="$(comm -23 <(sort -u "$file") <(sort -u <<<"$now") | grep . || true)"
+    header "$title"
+    if [ -z "$added$removed" ]; then
+        echo "  ${C_GREEN}up to date${C_RESET}"
+        return
+    fi
+    [ -n "$added" ]   && sed "s/^/  ${C_GREEN}+${C_RESET} /" <<<"$added"
+    [ -n "$removed" ] && sed "s/^/  ${C_RED}-${C_RESET} /" <<<"$removed"
+}
+
+do_diff() {
+    echo "${C_DIM}+ installed but not in the list, - in the list but not installed${C_RESET}"
+    # Same format as collect.sh: packages.txt = everything explicit,
+    # packages-aur.txt = the AUR subset.
+    compare "packages.txt" "$LIST" "$(pacman -Qqe)"
+    compare "packages-aur.txt" "$LIST_AUR" "$(pacman -Qqem)"
+    echo
+    echo "${C_DIM}save with: $SELF_NAME packages save${C_RESET}"
+}
+
+do_save() {
+    pacman -Qqe  > "$LIST"
+    pacman -Qqem > "$LIST_AUR"
+    cp "$LIST" "$DOTFILES_DIR/.last-packages.txt"
+    echo "saved $(wc -l < "$LIST") packages → $LIST"
+    echo "saved $(wc -l < "$LIST_AUR") AUR packages → $LIST_AUR"
+}
+
+do_install() {
+    [ $# -ge 1 ] || die "usage: $SELF_NAME packages install <package>..."
+    local helper; helper="$(aur_helper)"
+    if [ -n "$helper" ]; then
+        "$helper" -S --needed "$@"          # official repos and the AUR
+    else
+        sudo pacman -S --needed "$@"
+    fi
+}
+
+do_remove() {
+    [ $# -ge 1 ] || die "usage: $SELF_NAME packages remove <package>...  (or --orphans)"
+    local pkgs=() a
+    for a in "$@"; do
+        case "$a" in
+            --orphans)
+                mapfile -t -O "${#pkgs[@]}" pkgs < <(pacman -Qqdt 2>/dev/null)
+                [ ${#pkgs[@]} -gt 0 ] || { echo "no orphans — nothing to remove"; return; } ;;
+            -*) die "unknown flag: $a" ;;
+            *)  pacman -Qq "$a" >/dev/null 2>&1 || die "not installed: $a"
+                pkgs+=("$a") ;;
+        esac
+    done
+    # -s also removes dependencies nothing else needs, -n removes the
+    # package's saved config files. pacman lists everything and asks first.
+    sudo pacman -Rns "${pkgs[@]}"
+}
+
+# --- clean ----------------------------------------------------------------
+size_of() { du -sb "$1" 2>/dev/null | cut -f1; }
+
+clean_pacman_cache() {
+    local before after yn
+    if ! have paccache; then
+        printf '  paccache (from pacman-contrib) is needed to clean this cache. Install it now? [Y/n] '
+        read -r yn
+        case "$yn" in
+            ""|y|Y|yes) sudo pacman -S --needed --noconfirm pacman-contrib || return 0 ;;
+            *) echo "  skipped"; return 0 ;;
+        esac
+    fi
+    before="$(size_of /var/cache/pacman/pkg)"
+    sudo paccache -qrk2      # keep the 2 newest versions of installed packages
+    sudo paccache -qruk0     # drop every cached version of removed packages
+    after="$(size_of /var/cache/pacman/pkg)"
+    echo "  pacman:  $(human "$before") → $(human "$after")"
+}
+
+# AUR helpers keep one build folder per package (a git clone of its recipe,
+# plus downloaded sources and built packages).
+clean_aur_cache() {   # <label> <folder>
+    local label="$1" dir="$2" before after keep d name removed=0 stuck=()
+    [ -d "$dir" ] || return 0
+    before="$(size_of "$dir")"
+    # Package names and their pkgbase (build folders are named after the
+    # pkgbase, e.g. joplin → joplin-desktop).
+    keep="$( { pacman -Qq; awk '/^%BASE%/{getline; print}' /var/lib/pacman/local/*/desc; } | sort -u)"
+    for d in "$dir"/*/; do
+        d="${d%/}"; name="$(basename "$d")"
+        [ -d "$d/.git" ] || continue                 # only touch build folders
+        if ! grep -qxF "$name" <<<"$keep"; then
+            # Not installed anymore: the whole folder goes.
+            if rm -rf -- "$d" 2>/dev/null; then removed=$((removed + 1)); else stuck+=("$d"); fi
+        else
+            # Remove everything git doesn't track: sources, built packages.
+            git -C "$d" clean -fdxq >/dev/null 2>&1 || stuck+=("$d")
+        fi
+    done
+    after="$(size_of "$dir")"
+    printf '  %-8s %s → %s' "$label:" "$(human "$before")" "$(human "$after")"
+    [ "$removed" -gt 0 ] && printf ' %s(%d folder(s) of removed packages deleted)%s' "$C_DIM" "$removed" "$C_RESET"
+    echo
+    if [ ${#stuck[@]} -gt 0 ]; then
+        echo "  ${C_YELLOW}!${C_RESET} couldn't fully clean (some files are owned by root, usually from a build run with sudo):"
+        for d in "${stuck[@]}"; do echo "      $d"; done
+        echo "    ${C_DIM}check them, then delete with: sudo rm -rf <folder>${C_RESET}"
+    fi
+}
+
+do_clean() {
+    [ $# -eq 0 ] || die "clean takes no arguments"
+    header "Cleaning package caches"
+    clean_pacman_cache
+    clean_aur_cache paru "$HOME/.cache/paru/clone"
+    clean_aur_cache yay  "$HOME/.cache/yay"
+}
+
+action="${1:-list}"
+[ $# -gt 0 ] && shift
+case "$action" in
+    -h|--help|help)       show_help ;;
+    list|ls)              do_list "$@" ;;
+    --*)                  do_list "$action" "$@" ;;   # flags without "list"
+    search|find)          do_search "$@" ;;
+    install|add)          do_install "$@" ;;
+    remove|rm|uninstall)  do_remove "$@" ;;
+    clean)                do_clean "$@" ;;
+    diff)                 do_diff "$@" ;;
+    save)                 do_save "$@" ;;
+    *) die "unknown action: $action (try: $SELF_NAME packages --help)" ;;
+esac

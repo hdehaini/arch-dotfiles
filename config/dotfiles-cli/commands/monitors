@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# DESC: Screens — what's connected, and pinning the layout for this machine.
+
+set -u
+. "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+HOST_NAME="$(cat /proc/sys/kernel/hostname 2>/dev/null || uname -n)"
+HOST_FILE="$HOME/.config/hypr/hosts/$HOST_NAME.lua"
+SHOW_FILE="${HOST_FILE/#$HOME/\~}"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME monitors — connected screens and this machine's saved layout.
+
+Usage: $SELF_NAME monitors [action]
+
+Actions:
+  list              Every screen: name, model, mode, position, and whether
+                    its layout is saved or automatic (the default)
+  save              Save the current layout to $SHOW_FILE
+                    (creates it if needed; only the monitor list is
+                    rewritten, your env vars and startup commands are kept)
+  init              Create $SHOW_FILE with an empty layout,
+                    if it doesn't exist yet (bootstrap.sh runs this)
+  edit              Open that file in \$EDITOR
+
+Screens not in the file are set up automatically (best resolution and
+refresh rate, placed next to the others). The file is filled in by itself
+the first time you log in to Hyprland; to change a screen's position,
+refresh rate or scale, edit it, then: hyprctl reload
+EOF
+}
+
+# A new, empty hosts file.
+init_file() {
+    [ -e "$HOST_FILE" ] && return 0
+    mkdir -p "$(dirname "$HOST_FILE")"
+    cat > "$HOST_FILE" <<EOF
+-- Settings for the machine named "$HOST_NAME" (hyprland.lua loads
+-- hosts/<hostname>.lua). Every field is optional.
+
+return {
+    -- Screens. Filled in automatically the first time you log in, and by
+    -- \`$HOST_NAME monitors save\`. Change a mode, position ("XxY", top-left
+    -- corner in logical pixels) or scale, then: hyprctl reload
+    -- The order decides which workspace IDs each screen gets (1st: 1-10,
+    -- 2nd: 11-20, ...); SUPER+1..0 is always "1..10 on this screen".
+    -- Screens not listed are set up automatically.
+    monitors = {
+        -- monitors:begin
+        -- monitors:end
+    },
+
+    -- Environment variables only this machine needs, e.g.
+    --   DRI_PRIME = "pci-0000_03_00_0",   -- which GPU apps run on
+    env = {
+    },
+
+    -- Commands to run once at login, after the shared autostart.
+    startup = {
+    },
+}
+EOF
+    ok "created $SHOW_FILE"
+}
+
+# Rewrite the block between the markers with the screens connected now.
+# $1 = 1 → only if the block is still empty (used at login).
+save_layout() {
+    local only_if_empty="$1" screens
+    command -v hyprctl >/dev/null && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] ||
+        die "Hyprland isn't running here — run this from inside your desktop session"
+    screens="$(hyprctl monitors -j)" || die "couldn't ask Hyprland for the screens"
+    init_file >/dev/null
+    HOST_FILE="$HOST_FILE" ONLY_IF_EMPTY="$only_if_empty" SCREENS="$screens" python3 - <<'PY'
+import json, os, re, sys
+
+path = os.environ["HOST_FILE"]
+text = open(path).read()
+m = re.search(r"^([ \t]*)-- monitors:begin[^\n]*\n(.*?)^[ \t]*-- monitors:end", text, re.S | re.M)
+if not m:
+    sys.exit(f"{path} has no '-- monitors:begin' / '-- monitors:end' lines; add them inside monitors = {{ }}")
+indent, body = m.group(1), m.group(2)
+saved = re.findall(r'output\s*=\s*"([^"]+)"', body)
+if os.environ["ONLY_IF_EMPTY"] == "1" and saved:
+    sys.exit(0)
+
+screens = json.loads(os.environ["SCREENS"])
+# Keep the existing order (it decides workspace IDs); new screens go after,
+# lower rows first (the desk before a TV above it), then left to right.
+known = [s for name in saved for s in screens if s["name"] == name]
+new = sorted((s for s in screens if s["name"] not in saved), key=lambda s: (-s["y"], s["x"]))
+gone = [name for name in saved if name not in {s["name"] for s in screens}]
+
+def num(x):
+    x = round(float(x), 2)
+    return str(int(x)) if x == int(x) else f"{x:g}"
+
+lines = []
+for s in known + new:
+    entry = (f'{{ output = "{s["name"]}", mode = "{s["width"]}x{s["height"]}@{num(s["refreshRate"])}", '
+             f'position = "{s["x"]}x{s["y"]}", scale = {num(s["scale"])}')
+    if s.get("transform"):
+        entry += f', transform = {s["transform"]}'
+    entry += " },"
+    model = " ".join(x for x in (s.get("make"), s.get("model")) if x) or s.get("description", "")
+    lines.append(f"{indent}{entry}  -- {model}".rstrip())
+# Screens that are unplugged right now stay saved, as they were.
+for name in gone:
+    old = re.search(r'^[^\n]*output\s*=\s*"' + re.escape(name) + r'"[^\n]*$', body, re.M)
+    if old:
+        lines.append(old.group(0))
+
+new_body = "".join(l + "\n" for l in lines)
+text = text[:m.start(2)] + new_body + text[m.end(2):]
+open(path, "w").write(text)
+print(len(known + new))
+PY
+}
+
+do_list() {
+    command -v hyprctl >/dev/null && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] ||
+        die "Hyprland isn't running here — run this from inside your desktop session"
+    local saved=""
+    [ -f "$HOST_FILE" ] && saved="$(grep -o 'output *= *"[^"]*"' "$HOST_FILE" | sed 's/.*"\(.*\)"/\1/')"
+    printf '%s%-10s %-26s %-18s %-12s %-6s %s%s\n' "$C_DIM" SCREEN MODEL MODE POSITION SCALE LAYOUT "$C_RESET"
+    hyprctl monitors -j | jq -r '.[] | [.name, ((.make + " " + .model) | if . == " " then .description else . end),
+        "\(.width)x\(.height)@\(.refreshRate | . * 100 | round / 100)", "\(.x)x\(.y)", (.scale | tostring)] | @tsv' |
+    while IFS=$'\t' read -r name model mode pos scale; do
+        local how="${C_DIM}automatic${C_RESET}"
+        grep -qxF "$name" <<<"$saved" && how="${C_GREEN}saved${C_RESET}"
+        printf '%-10s %-26.26s %-18s %-12s %-6s %s\n' "$name" "$model" "$mode" "$pos" "$scale" "$how"
+    done
+    echo
+    if [ -f "$HOST_FILE" ]; then
+        printf '%slayout file: %s  (change it: %s monitors edit)%s\n' "$C_DIM" "$SHOW_FILE" "$SELF_NAME" "$C_RESET"
+    else
+        printf '%sno layout file yet — %s monitors save%s\n' "$C_DIM" "$SELF_NAME" "$C_RESET"
+    fi
+}
+
+action="${1:-list}"
+[ $# -gt 0 ] && shift
+case "$action" in
+    -h|--help|help) show_help ;;
+    list|ls)        do_list ;;
+    init)           init_file ;;
+    save)
+        if [ "${1:-}" = "--if-empty" ]; then          # at login: fill a new file once
+            save_layout 1 >/dev/null
+        else
+            [ $# -eq 0 ] || die "unknown argument: $1 (try: $SELF_NAME monitors --help)"
+            n="$(save_layout 0)" || exit 1
+            ok "saved $n screen(s) to $SHOW_FILE"
+            hint "edit positions / refresh rates there, then: hyprctl reload"
+        fi ;;
+    edit)           init_file >/dev/null; exec "${EDITOR:-${VISUAL:-vim}}" "$HOST_FILE" ;;
+    *) die "unknown action: $action (try: $SELF_NAME monitors --help)" ;;
+esac

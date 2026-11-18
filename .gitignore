@@ -13,3 +13,16 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Per-machine location for the eww weather/prayer widgets
+config/eww/location.conf
+
+# Python virtualenv + caches for eww scripts (recreated by bootstrap.sh)
+config/eww/scripts/.venv/
+__pycache__/
+*.pyc
+
+# Wallpapers (set them per machine with `<hostname> profile wallpaper`)
+# and which profile is active
+config/profiles/*/wallpapers/
+config/profiles/.current

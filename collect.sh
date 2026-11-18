@@ -118,6 +118,13 @@ copy_tree() {
     # copy_tree <src> <dst> <tree-name>
     local src="$1" dst="$2" name="$3"
     [ -d "$src" ] || { skip "$name"; return; }
+    # ~/.config/<name> is a symlink into this repo (bootstrap.sh links
+    # them): it's already in sync, and deleting <dst> here would delete
+    # the real files.
+    if [ "$(readlink -f "$src")" = "$(readlink -f "$dst" 2>/dev/null)" ]; then
+        ok "$name (linked — already in the repo)"
+        return
+    fi
     rm -rf -- "$dst"
     mkdir -p "$dst"
     # cp -a preserves perms / symlinks / timestamps. The trailing /. tells

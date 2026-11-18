@@ -1,16 +1,34 @@
 #!/usr/bin/env python3
 import json
 import datetime
+from zoneinfo import ZoneInfo
 from adhan import adhan
 from adhan.methods import KARACHI, ASR_STANDARD
 
-# --- CONFIGURATION (Adjust coordinates for your exact position) ---
-LAT = 32.7157
-LONG = -117.1611
-CITY = "San Diego"
-TIMEZONE_OFFSET = -7  # Change to your local UTC offset if needed
+from pathlib import Path
 
-# Clean Unicode character escapes mapping to Iosevka Nerd Font glyph shapes
+# --- CONFIGURATION ---
+# Location comes from ~/.config/eww/location.conf (one per machine, not in
+# the repo), falling back to location.conf.example.
+EWW_DIR = Path(__file__).resolve().parent.parent
+
+
+def read_location():
+    path = EWW_DIR / "location.conf"
+    if not path.exists():
+        path = EWW_DIR / "location.conf.example"
+    values = {}
+    for line in path.read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip("\"'")
+    return values["CITY"], float(values["LATITUDE"]), float(values["LONGITUDE"])
+
+
+CITY, LAT, LONG = read_location()
+
+# Clean Unicode character escapes mapping to Inter Regular glyph shapes
 PRAYER_MAP = {
     "Fajr": {"icon": ""},     # nf-md-weather_sunset_up (Updated Dawn/Fajr Glyph)
     "Dhuhr": {"icon": ""},    # nf-fa-sun_o (No changes needed)
@@ -18,6 +36,12 @@ PRAYER_MAP = {
     "Maghrib": {"icon": ""},    # nf-fa-moon_o (No changes needed)
     "Isha": {"icon": "󰖔"}       # nf-md-weather_night (Updated Starry Night Glyph)
 }
+
+def timezone_offset_for(day):
+    with open("/etc/localtime", "rb") as timezone_file:
+        local_timezone = ZoneInfo.from_file(timezone_file)
+    local_noon = datetime.datetime.combine(day, datetime.time(12), tzinfo=local_timezone)
+    return local_noon.utcoffset().total_seconds() / 3600
 
 def get_prayer_data():
     try:
@@ -34,7 +58,7 @@ def get_prayer_data():
             day=today,
             location=(LAT, LONG),
             parameters=params,
-            timezone_offset=TIMEZONE_OFFSET
+            timezone_offset=timezone_offset_for(today)
         )
         
         # Standardize dict naming conventions returned by the adhan package
@@ -76,7 +100,7 @@ def get_prayer_data():
                 day=tomorrow,
                 location=(LAT, LONG),
                 parameters=params,
-                timezone_offset=TIMEZONE_OFFSET
+                timezone_offset=timezone_offset_for(tomorrow)
             )
             next_prayer_time = tomorrow_prayers["fajr"]
 

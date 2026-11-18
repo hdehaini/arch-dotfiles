@@ -5,7 +5,7 @@
 /* --- Global --- */
 * {
   all: unset;
-  font-family: "JetBrains Mono Nerd Font", monospace;
+  font-family: "Inter Nerd Font", monospace;
   font-size: 12px;
   color: $on-surface-variant;
   border: none;
@@ -141,4 +141,24 @@
   min-width: 8px;
   min-height: 14px;
   margin: 0px;
+}
+
+/* --- Power row (Sleep / Restart / Shut down) --- */
+.power-btn {
+  font-size: 18px;
+  color: $on-surface-variant;
+  background-color: $surface-container-low;
+  border-radius: 10px;
+  padding: 8px 0px;
+}
+
+.power-btn:hover {
+  background-color: $surface-container-high;
+  color: $on-surface;
+}
+
+.power-btn.shutdown:hover {
+  /* a softened red: the error color blended into the button's own */
+  background-color: mix($error-container, $surface-container-high, 60%);
+  color: $on-error-container;
 }

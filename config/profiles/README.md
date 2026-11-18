@@ -18,8 +18,7 @@ profile doesn't override falls back to a pristine copy.
 ├── switch.sh         ← the switcher
 ├── _defaults/        ← pristine copies; fallback when a profile omits a slot
 │   ├── colors.scss
-│   ├── apps.json
-│   └── hyprpaper.conf  (legacy — no longer used)
+│   └── apps.json
 ├── default/          ← starter profile (matches your original setup)
 │   └── wallpapers/
 │       ├── DP-3.png
@@ -80,47 +79,30 @@ Activate:
 ~/.config/profiles/switch.sh work     # or SUPER+SHIFT+P
 ```
 
-## Setting a single monitor's wallpaper
+## Setting wallpapers
 
-When you already have separate images, target one monitor at a time:
-
-```bash
-~/.config/profiles/set-wallpaper.sh ~/Pictures/left.png  work DP-3
-~/.config/profiles/set-wallpaper.sh ~/Pictures/right.png work HDMI-A-2
-~/.config/profiles/set-wallpaper.sh ~/Pictures/tv.png    work HDMI-A-1
-```
-
-Any existing wallpaper for the same monitor (regardless of extension) is
-replaced, so re-running with a different image just swaps it cleanly.
-
-The same `--apply`, `--colors`, and `--prefer` flags from
-`split-wallpaper.sh` apply here. Use `--colors` on whichever single image
-you want to drive the eww palette:
+Everything goes through `<hostname> profile wallpaper` (same as
+`~/.config/profiles/wallpaper.sh`). Instead of output names you can use short
+names worked out from the Hyprland layout, so they fit whatever monitors the
+machine has: `left`, `right` (ends of the desk row), `center` (middle of an
+odd-sized row), `1 2 3 …` (desk screens from the left), `top`/`tv` (the
+screen(s) above), `desk` (the whole desk row) and `all`. Use `.` as the
+profile to mean the active one.
 
 ```bash
-# Set the TV image, derive the palette from it, activate the profile.
-~/.config/profiles/set-wallpaper.sh --colors --apply ~/Pictures/tv.png work HDMI-A-1
+nebula profile wallpaper                                    # what's on each screen
+nebula profile wallpaper screens                            # screens + short names
+nebula profile wallpaper set   ~/Pictures/tv.png work top   # one screen
+nebula profile wallpaper set   pic.png work left right      # same image on several screens
+nebula profile wallpaper split ultrawide.png work           # cut across the desk row
+nebula profile wallpaper split wide.png work center right   # only these, in this order
 ```
 
-## Splitting a wide image across two monitors
-
-If you grab a 3840×1080 (or any wide) image and want it spanned across the
-two desk monitors, use the helper:
-
-```bash
-~/.config/profiles/split-wallpaper.sh ~/Pictures/wide.png work
-# → ~/.config/profiles/work/wallpapers/DP-3.png       (left half)
-# → ~/.config/profiles/work/wallpapers/HDMI-A-2.png   (right half)
-```
-
-The profile must already exist (`switch.sh --new work`). The helper takes
-any format ImageMagick reads (png, jpg, webp, etc.) and writes PNGs.
-Pass two monitor names after the profile if you ever want to swap which
-half goes where:
-
-```bash
-~/.config/profiles/split-wallpaper.sh wide.jpg work HDMI-A-2 DP-3
-```
+`set` replaces any older wallpaper for that screen (any extension). `split`
+first crops the image (centered) to the combined shape of the chosen screens,
+then cuts it into one piece per screen so the pieces line up. It writes PNGs.
+The old `set-wallpaper.sh` / `split-wallpaper.sh` still work and just call
+`wallpaper.sh`.
 
 ### Optional flags
 
@@ -134,10 +116,10 @@ Common combos:
 
 ```bash
 # Full pipeline — split, palette, activate, all in one shot.
-~/.config/profiles/split-wallpaper.sh --colors --apply ~/Pictures/wide.png work
+nebula profile wallpaper split --colors --apply ~/Pictures/wide.png work
 
 # Same but bias the palette toward saturated tones.
-~/.config/profiles/split-wallpaper.sh --colors --prefer saturation wide.jpg work
+nebula profile wallpaper split --colors --prefer saturation wide.jpg work
 ```
 
 The matugen template that drives `--colors` lives at
@@ -192,5 +174,5 @@ daemon. It respects per-monitor scaling, so a 4K image on a 4K display renders
 at native pixels instead of being upscaled from a logical resolution (which is
 what hyprpaper does on scaled outputs).
 
-`awww-daemon` is started by `exec-once` in `hyprland.conf`. If it ever
+`awww-daemon` is started at login by `hyprland.lua`. If it ever
 isn't running, the switcher relaunches it.

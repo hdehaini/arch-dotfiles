@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# DESC: System health — software, hardware and network.
+
+set -u
+CLI_ROOT="$(dirname "$(readlink -f "$0")")/.."
+. "$CLI_ROOT/lib/common.sh"
+. "$CLI_ROOT/health/software.sh"
+. "$CLI_ROOT/health/hardware.sh"
+. "$CLI_ROOT/health/network.sh"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME health — check that everything is installed, running and healthy.
+
+Usage: $SELF_NAME health [area] [part...] [flags]
+
+Areas:
+  (none)      Health summary of everything: one ✓ line per category that's
+              fine, details only for what needs attention
+  software    Details. Parts: $SOFTWARE_SECTIONS
+  hardware    Details. Parts: $HARDWARE_PARTS
+  network     Details: connections, Wi-Fi, DNS, ping tests
+
+Parts narrow an area down to just those, e.g. "hardware cpu gpu".
+
+Flags:
+  --usage       hardware: only usage (load, clocks, VRAM, RAM, disk space,
+                power, battery charge)
+  --temps       hardware: only temperatures and fan speeds
+  --all         summary: show every check, not just the problems
+  --watch [N]   Refresh every N seconds (default 2), Ctrl+C to stop
+
+Examples:
+  $SELF_NAME health
+  $SELF_NAME health hardware --temps
+  $SELF_NAME health hardware gpu --usage --watch 1
+  $SELF_NAME health software processes --watch
+  $SELF_NAME health network
+
+✓ fine   ! worth a look   ✗ broken. The summary exits with 1 if anything
+is broken, so it can be used in scripts.
+EOF
+}
+
+# Area titles stand out from the category headers under them.
+area_title() { printf '\n%s%s%s\n' "$C_BOLD$C_CYAN" "${1^^}" "$C_RESET"; }
+
+summary() {
+    OK_N=0 WARN_N=0 BAD_N=0
+    # Without --all, categories that are fine collapse to one ✓ line.
+    [ "$ALL" = 1 ] || SUMMARY=1
+    area_title "Software"; software_check; end_section
+    area_title "Hardware"; hardware_check; end_section
+    area_title "Network";  network_check;  end_section
+    SUMMARY=0
+    echo
+    printf '%s%d ok%s, %s%d to look at%s, %s%d broken%s\n' \
+        "$C_GREEN" "$OK_N" "$C_RESET" "$C_YELLOW" "$WARN_N" "$C_RESET" "$C_RED" "$BAD_N" "$C_RESET"
+    printf '%sdetails: %s health software | hardware | network%s\n' "$C_DIM" "$SELF_NAME" "$C_RESET"
+    [ "$BAD_N" -eq 0 ]
+}
+
+# --- arguments ------------------------------------------------------------
+AREA="" PARTS=() WATCH="" KINDS=() ALL=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help|help) show_help; exit 0 ;;
+        -w|--watch)
+            WATCH=2
+            if [[ "${2:-}" =~ ^[0-9.]+$ ]]; then WATCH="$2"; shift; fi
+            shift ;;
+        --usage)                       KINDS+=(usage); shift ;;
+        --temps|--temp|--temperature)  KINDS+=(temp);  shift ;;
+        --all)                         ALL=1; shift ;;
+        -*) die "unknown flag: $1 (try: $SELF_NAME health --help)" ;;
+        *)
+            if [ -z "$AREA" ]; then AREA="$1"; else PARTS+=("$1"); fi
+            shift ;;
+    esac
+done
+
+# Flags only make sense for some areas; say so instead of ignoring them.
+if [ ${#KINDS[@]} -gt 0 ]; then
+    case "$AREA" in
+        hardware|hw) HW_KINDS="${KINDS[*]}" ;;
+        "") die "--usage / --temps go with hardware: $SELF_NAME health hardware --${KINDS[0]/temp/temps}" ;;
+        *)  die "--usage / --temps only apply to: $SELF_NAME health hardware" ;;
+    esac
+fi
+[ "$ALL" = 1 ] && [ -n "$AREA" ] && die "--all is for the summary ($SELF_NAME health --all); $AREA already shows everything"
+
+case "$AREA" in
+    "")                 [ ${#PARTS[@]} -eq 0 ] || die "unexpected: ${PARTS[*]}"
+                        run() { summary; } ;;
+    software|sw)        run() { software_show "${PARTS[@]}"; } ;;
+    hardware|hw)        run() { hardware_show "${PARTS[@]}"; } ;;
+    network|net)        [ ${#PARTS[@]} -eq 0 ] || die "network has no parts"
+                        run() { network_show; } ;;
+    *) die "unknown area: $AREA (choose software, hardware or network)" ;;
+esac
+
+if [ -n "$WATCH" ]; then
+    trap 'tput cnorm; echo; exit 0' INT TERM
+    tput civis
+    while :; do
+        out="$(run)"
+        tput clear
+        printf '%s%s  refreshing every %ss, Ctrl+C to stop%s\n%s\n' "$C_DIM" "$(date '+%H:%M:%S')" "$WATCH" "$C_RESET" "$out"
+        sleep "$WATCH"
+    done
+else
+    run
+    status=$?
+    echo
+    exit "$status"
+fi

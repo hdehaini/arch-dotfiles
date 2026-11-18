@@ -8,6 +8,10 @@
   :initial "[1,2,3]"
   "bash ~/.config/eww//scripts/get-dotfiles-config.sh")
 
+(defpoll weather_now :interval "10m"
+  :initial '{"icon":"󰖐","desc":"","temp":""}'
+  "~/.config/eww//scripts/weather-now.sh")
+
 (deflisten workspaces :initial "[]" 
   "bash ~/.config/eww//scripts/get-workspaces.sh")
 
@@ -20,22 +24,15 @@
 
 ;; Definisi variable untuk system variable
 (deflisten system_status
-  :initial '{"wifi_icon":"","wifi_desc":"","wifi_connected":false,"bat_icon":"","bat_desc":"","bat_capacity":0,"bat_charging":false,"bright_icon":"","bright_desc":"","bright_pct":0,"vol_icon":"","vol_desc":"","vol_pct":0,"vol_muted":false}'
+  :initial '{"wifi_icon":"","wifi_desc":"","wifi_connected":false,"bat_present":false,"bat_icon":"","bat_desc":"","bat_capacity":0,"bat_charging":false,"bright_icon":"","bright_desc":"","bright_pct":0,"vol_icon":"","vol_desc":"","vol_pct":0,"vol_muted":false}'
   "python3 ~/.config/eww//scripts/system-monitor.py")
 
 (defpoll pc_stats :interval "2s"
   :initial '{"cpu_usage":0,"cpu_temp":0,"mem_perc":0,"mem_used":"0G","mem_total":"0G","disk_perc":0,"disk_used":"0G","disk_total":"0G"}'
   "python3 ~/.config/eww//scripts/sys_info.py")
 
-(defvar show_prayer_tooltip false)
-
-;; Static or Poll variables
-; (defpoll prayer_data :interval "300s"
-;   :initial '{"city": "Loading...", "lat": "0.00° N", "long": "0.00° W", "next_name": "Fajr", "next_time": "00:00 AM", "next_icon": "", "daily": [{"name":"Fajr","icon":"","time":"00:00 AM"},{"name":"Dhuhr","icon":"","time":"00:00 AM"},{"name":"Asr","icon":"","time":"00:00 AM"},{"name":"Maghrib","icon":"","time":"00:00 AM"},{"name":"Isha","icon":"","time":"00:00 AM"}]}'
-;   "~/.config/eww//scripts/.venv/bin/python ~/.config/eww//scripts/prayer_engine.py")
-
-(deflisten prayer_data :initial '{"city": "Loading...", "lat": "0.00° N", "long": "0.00° W", "next_name": "Fajr", "next_time": "00:00 AM", "next_icon": "", "daily": [{"name":"Fajr","icon":"","time":"00:00 AM","is_next":false},{"name":"Dhuhr","icon":"","time":"00:00 AM","is_next":false},{"name":"Asr","icon":"","time":"00:00 AM","is_next":false},{"name":"Maghrib","icon":"","time":"00:00 AM","is_next":false},{"name":"Isha","icon":"","time":"00:00 AM","is_next":false}]}'
-  "~/.config/eww//scripts/.venv/bin/python ~/.config/eww//scripts/prayer_process.py")
+(deflisten prayer_data :initial '{"city": "Loading...", "lat": "--", "long": "--", "next_name": "Loading...", "next_time": "--:--", "next_icon": "…", "daily": [{"name":"Fajr","icon":"…","time":"--:--","is_next":false},{"name":"Dhuhr","icon":"…","time":"--:--","is_next":false},{"name":"Asr","icon":"…","time":"--:--","is_next":false},{"name":"Maghrib","icon":"…","time":"--:--","is_next":false},{"name":"Isha","icon":"…","time":"--:--","is_next":false}]}'
+  "$HOME/.config/eww/scripts/.venv/bin/python $HOME/.config/eww/scripts/prayer_process.py")
 
 
 ;; --------- WIDGET --------------------------------------------------
@@ -50,14 +47,23 @@
 
 (defwidget workspaces_widget []
   (box :class "i3-section"
+       :space-evenly false
        :spacing 2
        :valign "center"
        :vexpand false
+    ;; One group per monitor (left to right), each numbered 1..10, with a
+    ;; divider between monitors. Colors cycle mon1/mon2/mon3 per monitor.
     (for ws in {workspaces}
-      (button
-        :class "ws-btn ${ws.focused ? 'focused' : ''} ${ws.urgent ? 'urgent' : ''} ${ws.visible ? 'visible' : ''} ${ws.num <= 5 ? 'mon1' : (ws.num <= 10 ? 'mon2' : 'mon3')}"
-        :onclick "if command -v hyprctl >/dev/null 2>&1; then hyprctl dispatch workspace ${ws.num}; else i3-msg 'workspace number ${ws.num}'; fi"
-        "${ws.num}"))))
+      (box :space-evenly false
+           :spacing 2
+        (label :class "ws-divider"
+               :visible {ws.first && ws.group > 1}
+               :text "│")
+        (button
+          :class "ws-btn ${ws.focused ? 'focused' : ''} ${ws.visible ? 'visible' : ''} mon${(ws.group - 1) % 3 + 1}"
+          :tooltip "${ws.monitor}"
+          :onclick "if command -v hyprctl >/dev/null 2>&1; then hyprctl dispatch 'hl.dsp.focus({ workspace = ${ws.id} })'; else i3-msg 'workspace number ${ws.id}'; fi"
+          "${ws.num}")))))
 
 ;; Main Bar Widget
 (defwidget bar-widget []
@@ -77,14 +83,6 @@
          :valign "center"
          :vexpand false
 
-      (eventbox :onclick "~/.config/eww//scripts/popup.sh toggle start_menu"
-                :cursor "pointer"
-        (label :class "start-menu-icon"
-               :text " "))
-        ; (image :path "${EWW_CONFIG_DIR}/assets/CachyOS-${icon-theme}.svg"
-        ;        :image-width 20
-        ;        :image-height 20))
-        
       (workspaces_widget)
 
       (eventbox :onhover "eww -c $HOME/.config/eww/ update show_weather_tooltip=true && eww -c $HOME/.config/eww/ open weather-tooltip-window"
@@ -93,15 +91,15 @@
              :space-evenly false
              :spacing 10
           (label :class "weather-bar"
-                 :text WEATHER_ICON)
+                 :text {weather_now.icon})
           (label :class "text-weather-bar"
-                 :text WEATHER_DESC)
+                 :text "${weather_now.temp} ${weather_now.desc}")
         )
       )
 
-      (eventbox :onclick "pkill -f mpv && eww -c $HOME/.config/eww/ close prayer-tooltip-window"
-                :onhover "if [ \"$(eww -c $HOME/.config/eww/ active-windows | grep prayer-tooltip-window)\" = \"\" ]; then eww -c $HOME/.config/eww/ update show_prayer_tooltip=true && eww -c $HOME/.config/eww/ open prayer-tooltip-window; fi"
-                :onhoverlost "eww -c $HOME/.config/eww/ update show_prayer_tooltip=false && eww -c $HOME/.config/eww/ close prayer-tooltip-window"
+      (eventbox :onclick "$HOME/.config/eww/scripts/stop-adhan.sh; eww -c $HOME/.config/eww/ close prayer-tooltip-window"
+                :onhover "eww -c $HOME/.config/eww/ open prayer-tooltip-window"
+                :onhoverlost "eww -c $HOME/.config/eww/ close prayer-tooltip-window"
                 :cursor "pointer"
         (box :orientation "h" 
              :space-evenly false
@@ -127,7 +125,7 @@
          :valign "center"
          :vexpand false
       
-      (eventbox :onclick "~/.config/eww//scripts/popup.sh toggle performance_monitor"
+      (eventbox :onclick "eww -c $HOME/.config/eww/ update active_tab=dashboard; ~/.config/eww//scripts/popup.sh toggle performance_monitor"
                 :timeout "2s"
                 :cursor "pointer"
         (box :class "windows-center-bar"
@@ -170,23 +168,35 @@
               :valign "center"
               :vexpand false
 
-           ;; --- 2. PC Stats ---
-           (box :orientation "h"
-           :spacing 6
-           :space-evenly false
-             (label :class "right-icon"
-               :text "")
-             (label :class "right-text"
-               :text "${pc_stats.cpu_usage}% ${pc_stats.cpu_temp}°C |")
-           )
-           (box :orientation "h"
-           :spacing 6
-           :space-evenly false
-             (label :class "right-icon"
-               :text " ")
-             (label :class "right-text"
-               :text "${pc_stats.mem_perc}%")
-           )
+           ;; --- 2. Hardware: CPU, GPU, RAM (click → details) ---
+           (eventbox :onclick "~/.config/eww//scripts/open-hardware.sh"
+                     :cursor "pointer"
+                     :tooltip "Hardware details"
+             (box :orientation "h"
+                  :space-evenly false
+                  :spacing 10
+               (box :orientation "h"
+                    :spacing 6
+                    :space-evenly false
+                 (label :class "right-icon ${pc_stats.cpu_temp >= 85 ? 'hw-hot' : pc_stats.cpu_temp >= 75 ? 'hw-warm' : ''}"
+                        :text "")
+                 (label :class "right-text"
+                        :text "${pc_stats.cpu_usage}% ${pc_stats.cpu_temp}°C"))
+               (box :orientation "h"
+                    :spacing 6
+                    :space-evenly false
+                    :visible {pc_stats.gpu_present ?: false}
+                 (label :class "right-icon ${(pc_stats.gpu_temp ?: 0) >= 90 ? 'hw-hot' : (pc_stats.gpu_temp ?: 0) >= 80 ? 'hw-warm' : ''}"
+                        :text "󰢮")
+                 (label :class "right-text"
+                        :text "${pc_stats.gpu_usage ?: '–'}% ${pc_stats.gpu_temp ?: '–'}°C"))
+               (box :orientation "h"
+                    :spacing 6
+                    :space-evenly false
+                 (label :class "right-icon memory-icon ${pc_stats.mem_perc >= 90 ? 'hw-hot' : ''}"
+                        :text "")
+                 (label :class "right-text"
+                        :text "${pc_stats.mem_perc}%"))))
             )
 
       (eventbox :onclick "~/.config/eww//scripts/popup.sh toggle notification_center"
@@ -213,14 +223,19 @@
           (label :class "media-icon"
                  :text {media_info.status == "Playing" ? "󰎈" : "󰎇"})))
 
-      ;; --- 3. Brightness (own pill, sized like notification/media) ---
-      (box :class "icon-pill"
+      ;; --- Battery (laptops only: hidden when there's no battery) ---
+      (box :class "icon-pill battery-pill"
+           :visible {system_status.bat_present ?: false}
+           :orientation "h"
+           :space-evenly false
+           :spacing 4
            :halign "end"
            :valign "center"
            :vexpand false
-        (label :class "right-icon"
-               :xalign 0.5
-               :text {system_status.bright_icon}))
+           :tooltip "${system_status.bat_model}"
+        (label :class "right-icon ${system_status.bat_capacity <= 15 && !system_status.bat_charging ? 'hw-hot' : ''}"
+               :text {system_status.bat_icon})
+        (label :class "right-text" :text {system_status.bat_desc}))
 
       ;; --- 4. Volume (own pill) ---
       (box :class "icon-pill"

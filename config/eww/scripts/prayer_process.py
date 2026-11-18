@@ -4,17 +4,35 @@ import datetime
 import time
 import sys
 import subprocess
+from pathlib import Path
+from zoneinfo import ZoneInfo
 from adhan import adhan
 from adhan.methods import KARACHI, ASR_STANDARD
 
 # --- CONFIGURATION ---
-LAT = 32.7157
-LONG = -117.1611
-CITY = "San Diego"
-TIMEZONE_OFFSET = -7  
+EWW_DIR = Path(__file__).resolve().parent.parent
+
+
+def read_location():
+    """CITY / LATITUDE / LONGITUDE from location.conf (one per machine, not
+    in the repo), falling back to location.conf.example."""
+    path = EWW_DIR / "location.conf"
+    if not path.exists():
+        path = EWW_DIR / "location.conf.example"
+    values = {}
+    for line in path.read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip("\"'")
+    return values["CITY"], float(values["LATITUDE"]), float(values["LONGITUDE"])
+
+
+CITY, LAT, LONG = read_location()
 
 # Path to your local Adhan audio file
-ADHAN_AUDIO_PATH = "/home/hsdehaini/.config/eww//assets/adhan-0.mp3"
+ADHAN_AUDIO_PATH = str(EWW_DIR / "assets" / "adhan-0.mp3")
+ADHAN_PID_FILE = Path("/tmp/eww-adhan.pid")
 
 PRAYER_MAP = {
     "Fajr": {"icon": ""},     # nf-md-weather_sunset_up (Updated Dawn/Fajr Glyph)
@@ -24,13 +42,24 @@ PRAYER_MAP = {
     "Isha": {"icon": "󰖔"}       # nf-md-weather_night (Updated Starry Night Glyph)
 }
 
+def timezone_offset_for(day):
+    with open("/etc/localtime", "rb") as timezone_file:
+        local_timezone = ZoneInfo.from_file(timezone_file)
+    local_noon = datetime.datetime.combine(day, datetime.time(12), tzinfo=local_timezone)
+    return local_noon.utcoffset().total_seconds() / 3600
+
 def get_prayer_times():
     today = datetime.date.today()
     params = {}
     params.update(KARACHI)
     params.update(ASR_STANDARD)
     
-    prayers = adhan(day=today, location=(LAT, LONG), parameters=params, timezone_offset=TIMEZONE_OFFSET)
+    prayers = adhan(
+        day=today,
+        location=(LAT, LONG),
+        parameters=params,
+        timezone_offset=timezone_offset_for(today),
+    )
     return {
         "Fajr": prayers["fajr"],
         "Dhuhr": prayers["zuhr"],
@@ -69,7 +98,12 @@ def calculate_state():
         params = {}
         params.update(KARACHI)
         params.update(ASR_STANDARD)
-        tomorrow_prayers = adhan(day=tomorrow, location=(LAT, LONG), parameters=params, timezone_offset=TIMEZONE_OFFSET)
+        tomorrow_prayers = adhan(
+            day=tomorrow,
+            location=(LAT, LONG),
+            parameters=params,
+            timezone_offset=timezone_offset_for(tomorrow),
+        )
         next_prayer_time = tomorrow_prayers["fajr"]
 
     # Mark the exact next prayer in our array list
@@ -107,13 +141,18 @@ def main():
             last_prayer_triggered = output_json["next_name"]
             
             # 1. Trigger open window structure via subprocess execution layers
-            subprocess.Popen(["eww", "-c", "/home/hsdehaini/.config/eww/", "open", "prayer-tooltip-window"])
+            subprocess.Popen(["eww", "-c", str(EWW_DIR), "open", "prayer-tooltip-window"])
             
             # 2. Execute audio asset engine framework cleanly
-            subprocess.run(["mpv", "--no-video", ADHAN_AUDIO_PATH])
+            playback = subprocess.Popen(["mpv", "--no-video", ADHAN_AUDIO_PATH])
+            ADHAN_PID_FILE.write_text(str(playback.pid))
+            try:
+                playback.wait()
+            finally:
+                ADHAN_PID_FILE.unlink(missing_ok=True)
             
             # 3. Post playback checklist sequence execution
-            subprocess.run(["eww", "-c", "/home/hsdehaini/.config/eww/", "close", "prayer-tooltip-window"])
+            subprocess.run(["eww", "-c", str(EWW_DIR), "close", "prayer-tooltip-window"])
             
         time.sleep(10)
 

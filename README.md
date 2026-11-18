@@ -12,64 +12,45 @@ becomes the command name automatically.
 | **Hyprland** (`config/hypr/`) | Wayland window manager, monitor layout, keybinds. |
 | **eww bar + dashboard** (`config/eww/`) | Top bar, control center, notification history, dashboard popup with system stats, profile-themed widgets. Replaces waybar. |
 | **Desktop profiles** (`config/profiles/`) | Per-profile wallpapers, color palette (matugen-generated), and dock contents. Switch via wofi (SUPER+SHIFT+P) or `<hostname> profile switch <name>`. Auto-reloads when an external monitor connects. |
-| **Per-machine CLI** (`config/dotfiles-cli/`) | `<hostname> profile …`, `<hostname> wallpaper …`. One symlink at install time = same code, different command name on every machine. |
-| **Selfhost helpers** | Container toggle wired into the dashboard for things like the odysseus stack. |
+| **Per-machine CLI** (`config/dotfiles-cli/`) | `<hostname> profile …`, `health`, `packages`, `update`. One symlink at install time = same code, different command name on every machine. |
+| **Login screen** (`sddm/`) | SDDM theme using the active profile's wallpaper and colors. |
 | **kitty / wofi / dunst / nemo / nwg-look / fastfetch / xsettingsd / matugen / networkmanager-dmenu / GTK** | Configured to match. |
 
-## Fresh-Arch install (assumes you've finished `archinstall` and have networking)
+## Fresh-Arch install (after `archinstall`, with networking)
 
 ```bash
-# 1. clone the repo
-git clone <your-fork-url> ~/arch-dotfiles
+git clone https://github.com/hdehaini/arch-dotfiles ~/arch-dotfiles
 cd ~/arch-dotfiles
-
-# 2. bootstrap — installs packages, symlinks configs, installs the CLI
-bash bootstrap.sh
-
-# 3. drop wallpapers in
-mkdir -p ~/Pictures/wallpapers
-# put your images here, then create a profile:
-#   <hostname> profile new mywork
-#   <hostname> wallpaper set ~/Pictures/wallpapers/img.png mywork DP-3
-
-# 4. add yourself to the docker group (only if you'll use selfhost)
-sudo usermod -aG docker $USER
-
-# 5. fix the monitor= lines in ~/.config/hypr/hyprland.conf for your displays
-hyprctl monitors    # tells you the names (DP-3, HDMI-A-1, …)
-
-# 6. reboot — Hyprland comes up via SDDM
+./bootstrap.sh
 reboot
 ```
 
-After reboot, log in and try:
+`bootstrap.sh` is safe to re-run. It:
 
-```bash
-$(hostname) --help         # the CLI takes your hostname as its name
-$(hostname) profile list
-$(hostname) profile menu   # same as SUPER+SHIFT+P
-```
+1. installs the **base packages** in `packages/base.txt` (the desktop, the
+   bar, and every tool the scripts call), plus what **this** machine needs:
+   GPU drivers (AMD / Intel / NVIDIA), CPU microcode, Bluetooth, laptop
+   power tools — detected, not hard-coded;
+2. shows your **everyday apps** (`packages/apps.txt`: Brave, Joplin, VS Code…)
+   and asks before installing them;
+3. links every folder in `config/` into `~/.config` and `home/` into `~`
+   (anything already there is moved to `<name>.bak`);
+4. sets up the bar's Python environment and `~/.config/eww/location.conf`;
+5. installs the `<hostname>` command with tab completion, the login screen,
+   and enables NetworkManager, SDDM, Bluetooth, Docker, etc. as needed.
 
-If `<hostname>` isn't found, your `~/.local/bin` isn't on PATH yet. Add to
-`~/.bashrc` (or `~/.zshrc`):
+It ends with a short list of what's left (usually: set your city in
+`location.conf`, reboot).
 
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
+| Mode | What it does |
+| --- | --- |
+| `./bootstrap.sh` | base + (asks) apps + links + setup |
+| `./bootstrap.sh --yes` | same, without questions |
+| `./bootstrap.sh --full` | also everything in `packages.txt` / `packages-aur.txt` — a full rebuild of the main machine, games and all |
+| `./bootstrap.sh --link` | only re-link configs (no packages, no sudo) |
 
-Open a fresh shell and try again.
-
-## Bootstrap modes
-
-```bash
-bash bootstrap.sh             # default — required packages + symlinks
-bash bootstrap.sh --full      # also reinstalls everything in packages*.txt
-                              # (games, browsers, all of it)
-bash bootstrap.sh --link      # symlink only; skip pacman/paru
-```
-
-`--full` is for when you want a faithful rebuild of your old machine.
-`--link` is for re-running after `collect.sh` adds new tools to the repo.
+To change what a new machine gets, edit `packages/base.txt` (needed by the
+configs — keep it complete) or `packages/apps.txt` (your choice of apps).
 
 ## Day-to-day commands
 
@@ -83,9 +64,9 @@ $(hostname) profile delete chill          # --force to skip confirm
 $(hostname) profile menu                  # wofi picker
 
 # Wallpapers
-$(hostname) wallpaper split image.png myprofile                   # halve a 3840×1080
-$(hostname) wallpaper split img.png prof --colors --apply         # split + matugen + activate
-$(hostname) wallpaper set tv.png prof HDMI-A-1                    # one image, one monitor
+$(hostname) profile wallpaper split image.png myprofile           # across the desk monitors
+$(hostname) profile wallpaper split img.png prof --colors --apply # split + matugen + activate
+$(hostname) profile wallpaper set tv.png prof top                 # one image, one monitor
 ```
 
 The dashboard popup (open it from the bar's center widget) has:
@@ -136,74 +117,32 @@ dispatcher auto-discovers it.
 
 ## Things the repo intentionally does NOT include
 
-- `~/.config/Code`, `discord`, `mozilla`, `htop`, `mpv`, `pulse`,
-  `systemd`, `Thunar`, `xfce4` — app-managed dirs that rewrite themselves.
-- `~/.config/eww/scripts/.venv/` — the prayer-engine venv. Regenerated on
-  demand.
-- `~/Pictures/wallpapers/` — too large for git; bring your own.
+- App-managed folders that rewrite themselves (`~/.config/Code`,
+  `discord`, `mozilla`, …).
+- `config/eww/scripts/.venv/` — the prayer-widget Python environment;
+  `bootstrap.sh` recreates it from `requirements.txt`.
+- `config/eww/location.conf` — your location (per machine).
+- `config/profiles/*/wallpapers/` — wallpapers are personal and large;
+  bring your own.
 
-If you ever want one of these in, edit `CONFIG_DIRS` in `collect.sh`.
+## Per-machine settings
 
-## Personal configuration to edit after install
-
-Most of the desktop just works after `bootstrap.sh`. The following are
-**hardcoded** to my machine and won't be right for yours. Walk through each
-section once, then you're done.
-
-### Location-dependent things
-
-| What | File | What to change |
-| --- | --- | --- |
-| **Weather** (bar widget + tooltip) | `~/.config/eww/scripts/weather.sh` lines 11-15 | `CITY_NAME`, `COUNTRY_CODE`, `LATITUDE`, `LONGITUDE`, `UNITS` (`metric` / `imperial`), `LANG`. Uses Open-Meteo — no API key needed. |
-| **Prayer times** (bar widget + tooltip + adhan audio) | `~/.config/eww/scripts/prayer_engine.py` lines 8-11 **and** `~/.config/eww/scripts/prayer_process.py` lines 11-14 | `LAT`, `LONG`, `CITY`, `TIMEZONE_OFFSET` (your UTC offset, e.g. `-7` for PDT, `0` for UTC, `+3` for AST). **Both files must match** — they're used by different code paths. |
-
-### Monitor layout
-
-| What | File | What to change |
-| --- | --- | --- |
-| **Monitor definitions, scale, positions** | `~/.config/hypr/hyprland.conf` lines ~28-38 | Each `monitor=NAME, RESxRES@HZ, OFFx OFFy, SCALE` line. Run `hyprctl monitors` after a first boot to learn your output names (DP-1, HDMI-A-1, eDP-1, etc.). |
-| **Workspace → monitor binding** | `~/.config/hypr/hyprland.conf` lines ~42-55 | The `workspace = N, monitor:NAME` lines hardcode `DP-3` / `HDMI-A-2`. Change to your output names. |
-| **Legacy hyprpaper wallpapers** | `~/.config/hypr/hyprpaper.conf` | This file is mostly **dead code** since we use `awww` now (managed by the profile system). Either delete it or update its `monitor =` / `path =` lines to match your displays. |
-
-### Leftover hardcoded usernames (definitely edit these)
-
-These were imported from earlier setups and reference users that aren't on
-your machine. Find-and-replace them with your actual username (or with `$HOME`
-where the path makes sense).
-
-| File | Line | Current value | Fix |
-| --- | --- | --- | --- |
-| `~/.config/hypr/hyprland.conf` | ~95 | `XDG_DATA_DIRS,…/home/hamza/.local/share/flatpak/…` | Replace `hamza` with your user, or use `$HOME` |
-| `~/.config/profiles/_defaults/colors.scss` | 5 | `$wallpaper: "/home/diaz/.config/m3-colors/current_wallpaper";` | Cosmetic comment only — safe to delete the line, or point at your own path |
-| `~/.config/eww/scripts/prayer_process.py` | 17 | `ADHAN_AUDIO_PATH = "/home/hsdehaini/.config/eww//assets/adhan-0.mp3"` | Replace `hsdehaini` with your username, or use `os.path.expanduser("~/.config/eww/assets/adhan-0.mp3")` |
-| `~/.config/eww/scripts/prayer_process.py` | 110, 116 | `eww -c "/home/hsdehaini/.config/eww/"` | Same — replace username or use `expanduser` |
-
-### Selfhost helpers (only if you use the dashboard container toggle)
-
-| What | File | What to change |
-| --- | --- | --- |
-| **Compose stack location** | `~/.config/eww/scripts/odysseus-toggle.sh` line 8 | `COMPOSE_DIR="/mnt/storage/selfhost/odysseus"` — point at your compose dir, or delete the script if you don't selfhost |
-| **Container name** | `~/.config/eww/scripts/odysseus-status.sh` line 5 **and** `odysseus-toggle.sh` | The hardcoded `odysseus-odysseus-1` is the auto-generated compose name. Rename if your service isn't named `odysseus`, or wire the script to a different container entirely. |
-
-### Appearance preferences (optional)
+Everything works without these; they're for fine-tuning one machine.
 
 | What | Where |
 | --- | --- |
-| **GTK theme / icons / cursor / font** | `bootstrap.sh` step "Apply GTK theme defaults" sets `Adwaita-dark`, `Papirus-Dark`, `Bibata-Modern-Ice`, `JetBrainsMono Nerd Font 11`. Override with `nwg-look` (GUI) or edit `gsettings` calls. |
-| **Default applications** (browser, mail, file scheme handlers) | `~/.config/mimeapps.list` — the tracked file has Thunderbird, Discord, r2modman, etc. wired up. Edit or delete entries you don't want. |
-| **Matugen palette type** | `~/.config/matugen/config.toml` line 3 — `type = "standard"`. Other options: `express`, `extended`. |
-| **Adhan audio file** | `~/.config/eww/assets/adhan-0.mp3` — drop in any recitation you prefer, keep the filename or update `ADHAN_AUDIO_PATH`. |
+| **Location** (weather, prayer times) | `~/.config/eww/location.conf` — created from `location.conf.example`; not committed, so a laptop can have its own |
+| **Monitor positions, refresh rates, machine-only env vars / startup commands** | `~/.config/hypr/hosts/<hostname>.lua` — created by `bootstrap.sh` and filled with your screens at first login; change it with `<hostname> monitors edit` (or arrange, then `<hostname> monitors save`). Screens not in it are set up automatically (best mode, highest refresh rate). |
+| **Login screen** | `<hostname> profile login-screen` restyles it from the current profile (`--preview` to look first) |
 
-### One-time system tweaks the bootstrap doesn't do
+### Appearance
 
-- **SDDM theme background** — point it at your login wallpaper:
-  ```
-  /etc/sddm.conf.d/sddm.conf
-  /usr/share/sddm/themes/tokyo-night-sddm/theme.conf
-  ```
-- **Docker group** — `sudo usermod -aG docker $USER`, then log out / back in.
-- **BIOS boot order** — if dual-booting, set GRUB before Windows.
-- **Firmware updates** for displays / GPU — not handled here.
+| What | Where |
+| --- | --- |
+| **GTK theme / icons / cursor / font** | `config/gtk-3.0`, `config/gtk-4.0`, `home/.gtkrc-2.0`, and the `gsettings` lines in `hyprland.lua`: Adwaita-dark, Papirus-Dark, Windows-10 cursor (22px), Inter 11 |
+| **Default applications** | `config/mimeapps.list` |
+| **Matugen palette type** | `config/matugen/config.toml` |
+| **Adhan audio** | `config/eww/assets/adhan-0.mp3` |
 
 ### Recommended first-run smoke test
 
@@ -212,13 +151,14 @@ where the path makes sense).
 hyprctl monitors
 awww query
 ~/.config/eww/scripts/weather.sh current
-python3 ~/.config/eww/scripts/prayer_engine.py
+~/.config/eww/scripts/.venv/bin/python ~/.config/eww/scripts/prayer_engine.py
 nebula --help    # or whatever your hostname is
 nebula profile list
 
 # Visual checks:
 nebula profile menu                      # wofi pops up
-# Click the bar's time → control center opens, Night Mode toggle works
+# Click the bar's time → control center opens: Night Mode, sliders,
+#   and Sleep / Restart / Shut down at the bottom
 # Click the bar's center widget → dashboard with cpu/mem stats
 ```
 
@@ -230,10 +170,14 @@ arch-dotfiles/
 ├── INSTALL-ARCH.md            ← long-form Arch install walkthrough
 ├── REAUDIT-PROMPT.txt         ← LLM prompt to re-audit configs later
 ├── bootstrap.sh               ← clone → run on a fresh machine
-├── collect.sh                 ← sync live system → repo
+├── collect.sh                 ← sync live system → repo (skips linked dirs)
 ├── sync-docs.sh               ← annotate README with new packages (optional)
-├── packages.txt               ← `pacman -Qqe` snapshot
-├── packages-aur.txt           ← `pacman -Qqem` snapshot
+├── packages/
+│   ├── base.txt               ← always installed: desktop + everything the configs call
+│   └── apps.txt               ← offered during setup: your everyday apps
+├── packages.txt               ← full `pacman -Qqe` snapshot (`<host> packages save`)
+├── packages-aur.txt           ← full `pacman -Qqem` snapshot
+├── sddm/                      ← login screen theme + install.sh
 ├── config/                    ← mirrors ~/.config (tracked subset only)
 └── home/                      ← mirrors $HOME (small, tracked files only)
 ```

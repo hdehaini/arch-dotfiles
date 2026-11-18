@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# Read one value from location.conf (or the example if there's none yet).
+location() {
+    local dir; dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+    local f="$dir/location.conf"; [ -f "$f" ] || f="$dir/location.conf.example"
+    ( . "$f"; eval "echo \"\${$1:-Unknown}\"" )
+}
 # Wrapper script untuk weather agar output JSON friendly untuk Eww
 CONFIG_DIR="${EWW_CONFIG_DIR:-$HOME/.config/eww/}"
 WEATHER_SCRIPT="$CONFIG_DIR/scripts/weather.sh"
@@ -54,15 +61,15 @@ case "$1" in
         ;;
     
     city)
-        grep "^CITY_NAME=" "$WEATHER_SCRIPT" | cut -d"'" -f2 || echo "Unknown"
+        location CITY
         ;;
     
     latitude|lat)
-        grep "^LATITUDE=" "$WEATHER_SCRIPT" | cut -d'"' -f2 | cut -c1-5 || echo "Unknown"
+        location LATITUDE | cut -c1-5
         ;;
     
     longitude|lon|long)
-        grep "^LONGITUDE=" "$WEATHER_SCRIPT" | cut -d'"' -f2 | cut -c1-5 || echo "Unknown"
+        location LONGITUDE | cut -c1-5
         ;;
     
     *)

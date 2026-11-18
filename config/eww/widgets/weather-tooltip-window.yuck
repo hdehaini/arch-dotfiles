@@ -29,8 +29,8 @@
            :space-evenly false
            :spacing 0
 
-          (label :xalign 0.9 :class "icon-weather-tool" :text WEATHER_ICON)
-          (label :xalign 1 :class "" :text WEATHER_DESC)
+          (label :xalign 0.9 :class "icon-weather-tool" :text {weather_now.icon})
+          (label :xalign 1 :class "" :text {weather_now.desc})
           
           (box :orientation "h"
                :spacing 5 

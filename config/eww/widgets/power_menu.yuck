@@ -44,7 +44,7 @@
       (power_menu_button
         :icon "󰍃"
         :label "Logout"
-        :cmd "hyprctl dispatch exit; ~/.config/eww//scripts/popup.sh close power_menu")
+        :cmd "hyprctl dispatch 'hl.dsp.exit()'; ~/.config/eww//scripts/popup.sh close power_menu")
       (power_menu_button
         :icon ""
         :label "Power"

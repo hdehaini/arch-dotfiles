@@ -2,42 +2,42 @@
 // Source wallpaper drives the palette. See split-wallpaper.sh.
 
 // Wallpaper & Source
-$source-color: #9dcbfc;
+$source-color: #b0c6ff;
 
 // Special (Compatibility)
-$background: #101418;
-$foreground: #e0e2e8;
-$cursor: #9dcbfc;
+$background: #121318;
+$foreground: #e2e2e9;
+$cursor: #b0c6ff;
 
 // === MATERIAL 3 PRIMARY ===
-$primary: #9dcbfc;
-$on-primary: #003355;
-$primary-container: #134a74;
-$on-primary-container: #cfe5ff;
-$primary-fixed: #cfe5ff;
-$primary-fixed-dim: #9dcbfc;
-$on-primary-fixed: #001d34;
-$on-primary-fixed-variant: #134a74;
+$primary: #b0c6ff;
+$on-primary: #152e60;
+$primary-container: #2f4578;
+$on-primary-container: #d9e2ff;
+$primary-fixed: #d9e2ff;
+$primary-fixed-dim: #b0c6ff;
+$on-primary-fixed: #001945;
+$on-primary-fixed-variant: #2f4578;
 
 // === MATERIAL 3 SECONDARY ===
-$secondary: #bac8da;
-$on-secondary: #243240;
-$secondary-container: #3a4857;
-$on-secondary-container: #d6e4f7;
-$secondary-fixed: #d6e4f7;
-$secondary-fixed-dim: #bac8da;
-$on-secondary-fixed: #0f1d2a;
-$on-secondary-fixed-variant: #3a4857;
+$secondary: #c0c6dc;
+$on-secondary: #293042;
+$secondary-container: #404659;
+$on-secondary-container: #dce2f9;
+$secondary-fixed: #dce2f9;
+$secondary-fixed-dim: #c0c6dc;
+$on-secondary-fixed: #151b2c;
+$on-secondary-fixed-variant: #404659;
 
 // === MATERIAL 3 TERTIARY ===
-$tertiary: #d4bee6;
-$on-tertiary: #392a49;
-$tertiary-container: #514060;
-$on-tertiary-container: #f0dbff;
-$tertiary-fixed: #f0dbff;
-$tertiary-fixed-dim: #d4bee6;
-$on-tertiary-fixed: #241532;
-$on-tertiary-fixed-variant: #514060;
+$tertiary: #e0bbdd;
+$on-tertiary: #412742;
+$tertiary-container: #593d59;
+$on-tertiary-container: #fdd7fa;
+$tertiary-fixed: #fdd7fa;
+$tertiary-fixed-dim: #e0bbdd;
+$on-tertiary-fixed: #2a122c;
+$on-tertiary-fixed-variant: #593d59;
 
 // === MATERIAL 3 ERROR ===
 $error: #ffb4ab;
@@ -46,49 +46,49 @@ $error-container: #93000a;
 $on-error-container: #ffdad6;
 
 // === MATERIAL 3 SURFACE ===
-$surface: #101418;
-$on-surface: #e0e2e8;
-$surface-variant: #42474e;
-$on-surface-variant: #c2c7cf;
-$surface-dim: #101418;
-$surface-bright: #36393e;
-$surface-container-lowest: #0b0e12;
-$surface-container-low: #191c20;
-$surface-container: #1d2024;
-$surface-container-high: #272a2f;
-$surface-container-highest: #32353a;
+$surface: #121318;
+$on-surface: #e2e2e9;
+$surface-variant: #44464f;
+$on-surface-variant: #c5c6d0;
+$surface-dim: #121318;
+$surface-bright: #38393f;
+$surface-container-lowest: #0c0e13;
+$surface-container-low: #1a1b20;
+$surface-container: #1e1f25;
+$surface-container-high: #282a2f;
+$surface-container-highest: #33343a;
 
 // === MATERIAL 3 OUTLINE ===
-$outline: #8c9199;
-$outline-variant: #42474e;
+$outline: #8f9099;
+$outline-variant: #44464f;
 
 // === MATERIAL 3 INVERSE ===
-$inverse-surface: #e0e2e8;
-$inverse-on-surface: #2d3135;
-$inverse-primary: #32628d;
+$inverse-surface: #e2e2e9;
+$inverse-on-surface: #2f3036;
+$inverse-primary: #475d92;
 
 // === MATERIAL 3 SHADOW & SCRIM ===
 $shadow: #000000;
 $scrim: #000000;
 
 // === TERMINAL COLORS (approximated from the M3 palette) ===
-$color0:  #101418;
+$color0:  #121318;
 $color1:  #ffb4ab;
-$color2:  #d4bee6;
-$color3:  #514060;
-$color4:  #9dcbfc;
-$color5:  #bac8da;
-$color6:  #3a4857;
-$color7:  #e0e2e8;
+$color2:  #e0bbdd;
+$color3:  #593d59;
+$color4:  #b0c6ff;
+$color5:  #c0c6dc;
+$color6:  #404659;
+$color7:  #e2e2e9;
 
-$color8:  #36393e;
+$color8:  #38393f;
 $color9:  #ffdad6;
-$color10: #f0dbff;
-$color11: #cfe5ff;
-$color12: #9dcbfc;
-$color13: #d4bee6;
-$color14: #d6e4f7;
-$color15: #e0e2e8;
+$color10: #fdd7fa;
+$color11: #d9e2ff;
+$color12: #b0c6ff;
+$color13: #e0bbdd;
+$color14: #dce2f9;
+$color15: #e2e2e9;
 
 // === SCSS MAP (loops / mixins) ===
 $m3-colors: (

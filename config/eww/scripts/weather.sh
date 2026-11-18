@@ -2,23 +2,31 @@
 
 # SETTINGS 
 
-source "$HOME/.cache/m3-colors/colors.sh"
+[ -f "$HOME/.cache/m3-colors/colors.sh" ] && source "$HOME/.cache/m3-colors/colors.sh"
 
 # API settings ________________________________________________________________
 
-# Open-Meteo 
-CITY_NAME='Scripps Ranch'
-COUNTRY_CODE='US'
+# Location comes from ~/.config/eww/location.conf (one per machine, not in
+# the repo), falling back to location.conf.example.
+EWW_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+if [ -f "$EWW_DIR/location.conf" ]; then . "$EWW_DIR/location.conf"; else . "$EWW_DIR/location.conf.example"; fi
+CITY_NAME="$CITY"
 
-# FILL WITH LATITUDE AND LONGITUDE
-LATITUDE="32.7157"  # City latitude
-LONGITUDE="-117.1611"  # City longitude
+# Use bc if it's installed, otherwise do the same math with awk (bc isn't
+# part of a base Arch install).
+if ! command -v bc >/dev/null; then
+    bc() {
+        local e scale=-1; e="$(cat)"
+        if [[ "$e" =~ ^scale=([0-9]+)\;(.*)$ ]]; then scale="${BASH_REMATCH[1]}"; e="${BASH_REMATCH[2]}"; fi
+        awk -v s="$scale" "BEGIN { x = ($e); if (s == 0) print int(x); else if (s > 0) printf \"%.*f\\n\", s, x; else print x }"
+    }
+fi
 
 # Desired output language 
 LANG="en"
 
 # UNITS: "metric" or "imperial"
-UNITS="imperial"
+[ "${TEMP_UNIT:-fahrenheit}" = celsius ] && UNITS="metric" || UNITS="imperial"
 
 # Color Settings ______________________________________________________________
 

@@ -1,49 +1,67 @@
 #!/usr/bin/env bash
-# DESC: Manage desktop profiles (wallpaper, palette, dock contents).
+# DESC: Desktop profiles — wallpapers, color palette, dock contents.
 
 set -u
-SELF_NAME="${SELF_NAME:-$(basename "$(readlink -f "$0")")}"
-SWITCH="$HOME/.config/profiles/switch.sh"
+. "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+PROFILES="$HOME/.config/profiles"
+SWITCH="$PROFILES/switch.sh"
+WALLPAPER="$PROFILES/wallpaper.sh"
 
 show_help() {
     cat <<EOF
-$SELF_NAME profile — manage desktop profiles.
+$SELF_NAME profile — desktop profiles (wallpapers, color palette, dock).
 
-Usage: $SELF_NAME profile <action> [args...]
+Usage: $SELF_NAME profile [action] [args]
 
 Actions:
-  list                          List all profiles
-  current                       Show the active profile name
-  switch <name>                 Activate the named profile
-  apply                         Re-apply the current profile (used at login)
-  menu                          Open the wofi profile picker
-  new <name>                    Scaffold a new profile
-  delete <name> [--force]       Delete a profile (prompts unless --force)
-  rename <old> <new>            Rename a profile
+  list                      All profiles, the active one marked (the default)
+  current                   Just the active profile's name
+  switch <name>             Activate a profile
+  apply                     Re-apply the active profile (used at login)
+  menu                      Pick one from a wofi menu
+  new <name>                Create an empty profile
+  delete <name> [--force]   Delete a profile (asks first unless --force)
+  rename <old> <new>        Rename a profile
+  wallpaper [action] ...    Set or split wallpapers in a profile, see:
+                            $SELF_NAME profile wallpaper --help
+  login-screen [image]      Restyle the login screen with this profile's
+                            colors and wallpaper (asks for sudo);
+                            --preview to see it first without installing
 
-A profile lives at ~/.config/profiles/<name>/. See
+A profile lives in ~/.config/profiles/<name>/. See
 ~/.config/profiles/README.md for what goes inside.
 EOF
 }
 
-action="${1:-}"
-case "$action" in
-    "" | -h | --help | help) show_help; exit 0 ;;
-esac
-shift
+do_list() {
+    local cur p
+    cur="$("$SWITCH" --current)"
+    while read -r p; do
+        if [ "$p" = "$cur" ]; then
+            printf '%s● %s%s  %s(active)%s\n' "$C_GREEN" "$p" "$C_RESET" "$C_DIM" "$C_RESET"
+        else
+            printf '  %s\n' "$p"
+        fi
+    done < <("$SWITCH" --list)
+}
 
+action="${1:-list}"
+[ $# -gt 0 ] && shift
 case "$action" in
-    list)    exec "$SWITCH" --list ;;
-    current) exec "$SWITCH" --current ;;
-    apply)   exec "$SWITCH" --apply ;;
-    menu)    exec "$SWITCH" --menu ;;
-    switch)  exec "$SWITCH" "$@" ;;
-    new)     exec "$SWITCH" --new "$@" ;;
-    delete)  exec "$SWITCH" --delete "$@" ;;
-    rename)  exec "$SWITCH" --rename "$@" ;;
-    *)
-        echo "$SELF_NAME profile: unknown action: $action" >&2
-        echo "Try \`$SELF_NAME profile --help\`." >&2
-        exit 1
-        ;;
+    -h|--help|help) show_help ;;
+    list|ls)        do_list ;;
+    current)        exec "$SWITCH" --current ;;
+    apply)          exec "$SWITCH" --apply ;;
+    menu)           exec "$SWITCH" --menu ;;
+    switch)         [ $# -ge 1 ] || die "usage: $SELF_NAME profile switch <name>"
+                    exec "$SWITCH" "$*" ;;
+    new)            [ $# -ge 1 ] || die "usage: $SELF_NAME profile new <name>"
+                    exec "$SWITCH" --new "$*" ;;
+    delete|rm)      [ $# -ge 1 ] || die "usage: $SELF_NAME profile delete <name> [--force]"
+                    exec "$SWITCH" --delete "$@" ;;
+    rename|mv)      [ $# -eq 2 ] || die "usage: $SELF_NAME profile rename <old> <new>  (quote names with spaces)"
+                    exec "$SWITCH" --rename "$@" ;;
+    wallpaper|wp)   exec "$WALLPAPER" "$@" ;;
+    login-screen)   exec "$DOTFILES_DIR/sddm/install.sh" "$@" ;;
+    *) die "unknown action: $action (try: $SELF_NAME profile --help)" ;;
 esac

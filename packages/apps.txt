@@ -1,0 +1,42 @@
+# Everyday apps. bootstrap.sh asks before installing these, so a new
+# machine gets them only if you want. Edit freely: delete a line to skip an
+# app, add one to always offer it. (The full snapshot of everything on your
+# main machine is ../packages.txt — `bootstrap.sh --full` installs that.)
+#
+# One package per line; "#" starts a comment.
+
+# --- Browsers, notes, mail ------------------------------------------------
+brave-bin                    # AUR
+firefox
+joplin-desktop               # AUR
+thunderbird
+
+# --- Development ----------------------------------------------------------
+visual-studio-code-bin       # AUR
+github-cli
+git-lfs
+nodejs
+npm
+
+# --- Chat -----------------------------------------------------------------
+vesktop-bin                  # AUR: Discord
+
+# --- System tools ---------------------------------------------------------
+mission-center               # task manager
+htop
+fastfetch
+file-roller                  # archives
+nemo-fileroller
+ffmpegthumbnailer            # video thumbnails in the file manager
+flatpak
+
+# --- Media codecs ---------------------------------------------------------
+gst-libav
+gst-plugin-pipewire
+gst-plugins-bad
+gst-plugins-ugly
+
+# --- Containers and VPN --------------------------------------------------
+docker
+docker-compose
+tailscale

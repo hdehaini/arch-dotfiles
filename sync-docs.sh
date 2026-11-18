@@ -7,7 +7,7 @@
 
 set -e
 
-DOTFILES_DIR="/mnt/storage/Coding-Projects/Linux/arch-dotfiles"
+DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 README="$DOTFILES_DIR/README.md"
 CURRENT_PKG="$DOTFILES_DIR/packages.txt"
 LAST_PKG="$DOTFILES_DIR/.last-packages.txt"

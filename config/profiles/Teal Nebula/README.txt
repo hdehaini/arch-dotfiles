@@ -1,4 +1,4 @@
-Profile: One Piece
+Profile: Teal Nebula
 
 Drop files into this folder to customize:
   wallpapers/<monitor>.<ext>   per-monitor wallpaper (any image awww accepts)
@@ -9,5 +9,5 @@ Drop files into this folder to customize:
 
 Anything you do not provide falls back to ~/.config/profiles/_defaults/.
 
-Activate with:   switch.sh One Piece
+Activate with:   switch.sh Teal Nebula
 Or pick with:    SUPER+SHIFT+P

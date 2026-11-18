@@ -126,6 +126,7 @@ class SystemState:
 
         # Battery model
         self.bat_model = "Unknown"
+        self.bat_present = False   # True on laptops: the bar shows a battery
         self.bat_capacity = 0
         self.bat_charging = False
 
@@ -206,6 +207,7 @@ class SystemState:
                 "wifi_signal": self.wifi_signal,
                 "wifi_security": self.wifi_security,
                 "wifi_powered": self.wifi_powered,
+                "bat_present": self.bat_present,
                 "bat_model": self.bat_model,
                 "bat_icon": bi,
                 "bat_desc": f"{self.bat_capacity}%",
@@ -280,7 +282,9 @@ class SystemMonitor:
                 dev = self.system_bus.get_object("org.freedesktop.UPower", dev_path)
                 props = dbus.Interface(dev, "org.freedesktop.DBus.Properties")
                 p = props.GetAll("org.freedesktop.UPower.Device")
-                if int(p.get("Type", 0)) == 2:
+                # Type 2 = battery; PowerSupply excludes mouse/headset batteries.
+                if int(p.get("Type", 0)) == 2 and bool(p.get("PowerSupply", False)):
+                    self.state.bat_present = True
                     self.state.bat_capacity = int(p.get("Percentage", 0))
                     state = int(p.get("State", 0))
                     self.state.bat_charging = state in (1, 4)

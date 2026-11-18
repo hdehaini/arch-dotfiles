@@ -1,7 +1,7 @@
 #!/bin/bash
 
 emit() {
-  date '+{"time":"%-I:%M %p","hour":"%H","minute":"%M","month":"%B","month_short":"%b","year":"%Y","day":"%d","day_name":"%A","day_short":"%a"}'
+  date '+{"time":"%-I:%M %p","hour":"%H","hour12":"%-I","ampm":"%p","minute":"%M","month":"%B","month_short":"%b","year":"%Y","day":"%d","day_name":"%A","day_short":"%a"}'
 }
 
 # Emit sekali langsung di awal

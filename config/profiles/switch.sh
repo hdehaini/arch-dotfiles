@@ -24,7 +24,7 @@
 
 set -u
 
-ROOT="$HOME/.config/profiles"
+ROOT="$(readlink -f "$HOME/.config/profiles")"
 DEFAULTS="$ROOT/_defaults"
 CURRENT_FILE="$ROOT/.current"
 EWW_DIR="$HOME/.config/eww"
@@ -37,8 +37,15 @@ list_profiles() {
         ! -name '_defaults' -printf '%f\n' | sort
 }
 
+# The active profile; on a fresh install (no .current yet, or it names a
+# profile that's gone) the first profile alphabetically.
 current_profile() {
-    [ -f "$CURRENT_FILE" ] && cat "$CURRENT_FILE" || echo "default"
+    local cur=""
+    [ -f "$CURRENT_FILE" ] && cur="$(cat "$CURRENT_FILE")"
+    if [ -z "$cur" ] || [ ! -d "$ROOT/$cur" ]; then
+        cur="$(list_profiles | head -n1)"
+    fi
+    echo "${cur:-default}"
 }
 
 ensure_awww() {
@@ -56,29 +63,36 @@ ensure_awww() {
 }
 
 apply_wallpapers() {
-    local profile_dir="$1"
-    local wall_dir="$profile_dir/wallpapers"
-    local fallback_dir="$ROOT/default/wallpapers"
-
-    # Empty or missing wallpapers/ → use default profile's wallpapers so we
-    # never end up with a black screen. A profile can still override
-    # individual monitors by providing only those files.
-    if [ ! -d "$wall_dir" ] || [ -z "$(ls -A "$wall_dir" 2>/dev/null)" ]; then
-        [ -d "$fallback_dir" ] || return 0
-        wall_dir="$fallback_dir"
-    fi
+    local wall_dir="$1/wallpapers"
+    local images=() img
+    for img in "$wall_dir"/*; do [ -f "$img" ] && images+=("$img"); done
+    [ "${#images[@]}" -gt 0 ] || return 0      # nothing to show: keep what's there
 
     ensure_awww
-    for img in "$wall_dir"/*; do
-        [ -e "$img" ] || continue
-        local monitor path
-        monitor="$(basename "$img")"
-        monitor="${monitor%.*}"
-        path="$(readlink -f "$img")"
+
+    # Every connected screen gets wallpapers/<its name>.<ext>. A screen the
+    # profile has no file for (another machine, a new monitor) gets the
+    # profile's first image instead of staying black.
+    local monitors=()
+    if command -v hyprctl >/dev/null && command -v jq >/dev/null; then
+        mapfile -t monitors < <(hyprctl monitors -j 2>/dev/null | jq -r '.[].name')
+    fi
+    if [ "${#monitors[@]}" -eq 0 ]; then       # not in Hyprland: use the file names
+        for img in "${images[@]}"; do b="$(basename "$img")"; monitors+=("${b%.*}"); done
+    fi
+
+    local monitor match
+    for monitor in "${monitors[@]}"; do
+        match=""
+        for img in "${images[@]}"; do
+            b="$(basename "$img")"
+            [ "${b%.*}" = "$monitor" ] && { match="$img"; break; }
+        done
+        [ -n "$match" ] || match="${images[0]}"
         awww img --outputs "$monitor" \
                  --transition-type none \
                  --resize crop \
-                 "$path" >/dev/null 2>&1 \
+                 "$(readlink -f "$match")" >/dev/null 2>&1 \
             || echo "warn: could not set wallpaper for $monitor" >&2
     done
 }

@@ -10,10 +10,23 @@ x-scheme-handler/webcals=userapp-Thunderbird-1TEVM3.desktop
 x-scheme-handler/betterdiscord=discord.desktop
 x-scheme-handler/discord-424004941485572097=discord-424004941485572097.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
+x-scheme-handler/discord=vesktop.desktop
+text/html=brave-browser.desktop
+x-scheme-handler/http=brave-browser.desktop
+x-scheme-handler/https=brave-browser.desktop
+x-scheme-handler/about=brave-browser.desktop
+x-scheme-handler/unknown=brave-browser.desktop
+application/uproject=com.epicgames.UnrealEngineEditor.desktop
+text/plain=brave-browser.desktop
+application/json=brave-browser.desktop
 
 [Added Associations]
 x-scheme-handler/mailto=userapp-Thunderbird-0MMUM3.desktop;
 x-scheme-handler/mid=userapp-Thunderbird-0MMUM3.desktop;
 x-scheme-handler/webcal=userapp-Thunderbird-1TEVM3.desktop;
 x-scheme-handler/webcals=userapp-Thunderbird-1TEVM3.desktop;
-text/plain=code-oss.desktop;
+text/plain=com.microsoft.VSCode.desktop;code.desktop;firefox.desktop;code-oss.desktop;brave-browser.desktop;
+text/x-python=code.desktop;
+application/json=com.microsoft.VSCode.desktop;brave-browser.desktop;
+text/html=com.microsoft.VSCode.desktop;
+inode/directory=com.microsoft.VSCode.desktop;

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# DESC: Update everything (repos + AUR), then clean caches and save package lists.
+
+set -u
+. "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+PACKAGES="$(dirname "$(readlink -f "$0")")/packages"
+
+show_help() {
+    cat <<EOF
+$SELF_NAME update — update the whole system, then tidy up.
+
+Usage: $SELF_NAME update [flags]
+
+Steps:
+  1. Update official and AUR packages (with paru or yay if installed,
+     otherwise pacman)
+  2. Save the package lists in your dotfiles repo   ($SELF_NAME packages save)
+  3. Shrink the package caches                      ($SELF_NAME packages clean)
+  4. Tell you about anything that needs attention: a reboot after a kernel
+     update, .pacnew config files to merge, orphaned packages
+
+Flags:
+  --repo-only   Skip AUR packages (plain pacman -Syu)
+  --no-save     Don't touch the package lists
+  --no-clean    Don't clean the caches
+EOF
+}
+
+AUR=1 SAVE=1 CLEAN=1
+for a in "$@"; do
+    case "$a" in
+        -h|--help|help) show_help; exit 0 ;;
+        --repo-only)    AUR=0 ;;
+        --no-save)      SAVE=0 ;;
+        --no-clean)     CLEAN=0 ;;
+        *) die "unknown flag: $a (try: $SELF_NAME update --help)" ;;
+    esac
+done
+
+# --- 1. update ------------------------------------------------------------
+header "Updating packages"
+before="$(pacman -Q)"
+helper="$(aur_helper)"
+if [ "$AUR" -eq 1 ] && [ -n "$helper" ]; then
+    "$helper" -Syu || die "update failed — nothing else was changed"
+else
+    [ "$AUR" -eq 1 ] && echo "no AUR helper (paru or yay) found, updating official packages only"
+    sudo pacman -Syu || die "update failed — nothing else was changed"
+fi
+changed="$(comm -13 <(sort <<<"$before") <(pacman -Q | sort) | wc -l)"
+echo "${C_DIM}$changed package(s) installed or upgraded${C_RESET}"
+
+# --- 2. save package lists -----------------------------------------------
+if [ "$SAVE" -eq 1 ]; then
+    header "Package lists"
+    "$PACKAGES" save
+fi
+
+# --- 3. caches ------------------------------------------------------------
+[ "$CLEAN" -eq 1 ] && "$PACKAGES" clean
+
+# --- 4. things that need attention ---------------------------------------
+header "After the update"
+if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
+    warn "the kernel was updated — reboot to use it (USB devices may stop working until you do)"
+else
+    ok "no reboot needed"
+fi
+
+pacnew="$(find /etc -name '*.pacnew' 2>/dev/null)"
+if [ -n "$pacnew" ]; then
+    warn "new default config files to review (compare with your version, then delete the .pacnew):"
+    sed 's/^/      /' <<<"$pacnew"
+else
+    ok "no .pacnew config files"
+fi
+
+orphans="$(pacman -Qqdt 2>/dev/null | wc -l)"
+if [ "$orphans" -gt 0 ]; then
+    warn "$orphans orphaned package(s) — see: $SELF_NAME packages --orphans   remove: $SELF_NAME packages remove --orphans"
+else
+    ok "no orphaned packages"
+fi

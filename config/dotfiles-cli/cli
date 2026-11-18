@@ -45,6 +45,7 @@ case "${1:-}" in
 esac
 
 cmd="$1"; shift
+[ "$cmd" = doctor ] && cmd=health   # old name, kept so habits still work
 cmd_path="$COMMANDS_DIR/$cmd"
 
 if [ ! -x "$cmd_path" ]; then

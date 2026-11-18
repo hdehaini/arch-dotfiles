@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$name" ] || name="$(hostname -s 2>/dev/null || hostname)"
+[ -n "$name" ] || name="$(cat /proc/sys/kernel/hostname 2>/dev/null || uname -n)"
 [ -n "$name" ] || die "could not determine hostname"
 
 case "$name" in
@@ -73,6 +73,11 @@ case ":$PATH:" in
         echo "        export PATH=\"\$HOME/.local/bin:\$PATH\""
         ;;
 esac
+
+if ! grep -q "dotfiles-cli/completion.bash" "$HOME/.bashrc" 2>/dev/null; then
+    echo "note: for tab completion, add this to ~/.bashrc:"
+    echo "        [ -f ~/.config/dotfiles-cli/completion.bash ] && . ~/.config/dotfiles-cli/completion.bash"
+fi
 
 echo "installed: $LINK -> $CLI"
 echo "try:       $name --help"

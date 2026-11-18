@@ -1,0 +1,79 @@
+# Base packages: everything the desktop, bar, profiles and the <hostname>
+# command need. bootstrap.sh always installs these (official repos and AUR
+# alike, through paru). GPU drivers, CPU microcode and Bluetooth/laptop
+# extras are added automatically for the machine it runs on.
+#
+# One package per line; "#" starts a comment.
+
+# --- Hyprland desktop -----------------------------------------------------
+hyprland
+hyprlock                     # lock screen (bar power menu)
+hyprsunset                   # night mode + brightness (bar control center)
+hyprpolkitagent              # password prompts for apps that need root
+hyprshutdown                 # closes apps cleanly on restart / shut down
+xdg-desktop-portal-hyprland  # screen sharing, file pickers
+xdg-desktop-portal-gtk
+xdg-utils
+qt5-wayland
+qt6-wayland
+awww                         # wallpapers (profiles)
+eww-git                      # AUR: the bar and popups
+dunst                        # notifications
+wofi                         # app launcher (SUPER+R), profile menu
+kitty                        # terminal (SUPER+Q)
+nemo                         # file manager (SUPER+E)
+network-manager-applet       # tray Wi-Fi icon
+cursor-clip-git              # AUR: clipboard history (SUPER+V)
+grim                         # screenshots (SUPER+SHIFT+S)
+slurp
+wl-clipboard
+
+# --- Login screen ---------------------------------------------------------
+sddm
+
+# --- Audio ----------------------------------------------------------------
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+libpulse                     # pactl (volume slider)
+pamixer
+pavucontrol
+
+# --- Network --------------------------------------------------------------
+networkmanager
+
+# --- Tools the bar, profiles and <hostname> command call ------------------
+jq
+socat
+inotify-tools
+libnotify
+imagemagick                  # splitting wallpapers, login screen
+matugen                      # colors from wallpapers
+brightnessctl
+playerctl                    # media controls
+curl                         # weather
+mpv                          # adhan audio (prayer widget)
+upower                       # battery info
+pciutils                     # GPU names
+xdotool
+python
+python-dbus                  # media + system monitor scripts
+pacman-contrib               # cleaning the package cache
+lm_sensors
+git
+
+# --- Look: themes and fonts -----------------------------------------------
+papirus-icon-theme
+windows-10-cursor            # AUR
+inter-font
+nerd-fonts-inter             # AUR: bar text + icons ("Inter Nerd Font Propo")
+ttf-jetbrains-mono-nerd
+ttf-nerd-fonts-symbols       # bar + login screen icons
+otf-font-awesome             # bar RAM icon
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+nwg-look
+xsettingsd
