@@ -271,9 +271,11 @@ is 1920 wide). The same file holds env vars and startup commands for this
 machine only; it's in the repo, so a reinstall gets it back. SUPER+1…0
 always means "workspace 1…10 on the screen I'm on".
 
-**Wallpapers** — not in the repo; set them per machine. Profiles live in
-`~/.config/profiles/`; a screen without a wallpaper of its own gets the
-profile's first image. To make them fit:
+**Wallpapers** — they're in the repo, inside each profile
+(`~/.config/profiles/<profile>/wallpapers/`), one file per screen named
+after its output (`DP-3.png`). Another machine's screens probably have
+other names; a screen without a file of its own gets the profile's first
+image. To make them fit this machine's screens:
 
 ```bash
 <hostname> profile wallpaper screens                 # names + short aliases

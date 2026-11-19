@@ -22,7 +22,5 @@ config/eww/scripts/.venv/
 __pycache__/
 *.pyc
 
-# Wallpapers (set them per machine with `<hostname> profile wallpaper`)
-# and which profile is active
-config/profiles/*/wallpapers/
+# Which profile is active (per machine)
 config/profiles/.current

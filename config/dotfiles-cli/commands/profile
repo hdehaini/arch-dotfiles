@@ -24,6 +24,9 @@ Actions:
   rename <old> <new>        Rename a profile
   wallpaper [action] ...    Set or split wallpapers in a profile, see:
                             $SELF_NAME profile wallpaper --help
+  colors [profile] ...      Remake just the color palette (bar colors) from
+                            the profile's wallpaper, e.g. --scheme vibrant;
+                            see: $SELF_NAME profile colors --help
   login-screen [image]      Restyle the login screen with this profile's
                             colors and wallpaper (asks for sudo);
                             --preview to see it first without installing
@@ -62,6 +65,7 @@ case "$action" in
     rename|mv)      [ $# -eq 2 ] || die "usage: $SELF_NAME profile rename <old> <new>  (quote names with spaces)"
                     exec "$SWITCH" --rename "$@" ;;
     wallpaper|wp)   exec "$WALLPAPER" "$@" ;;
+    colors|colours) exec "$WALLPAPER" colors "$@" ;;
     login-screen)   exec "$DOTFILES_DIR/sddm/install.sh" "$@" ;;
     *) die "unknown action: $action (try: $SELF_NAME profile --help)" ;;
 esac

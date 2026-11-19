@@ -110,7 +110,8 @@ The old `set-wallpaper.sh` / `split-wallpaper.sh` still work and just call
 | ------------------- | -------------------------------------------------------------------- |
 | `--colors`          | Run [matugen](https://github.com/InioX/matugen) on the wallpaper and write `<profile>/colors.scss`. The eww palette will match the image. |
 | `--apply`           | Activate the profile right after writing files (same as `switch.sh <profile>` afterwards). |
-| `--prefer <kind>`   | Tell matugen which color to lean on when an image has multiple candidates. Defaults to `darkness`; other options: `lightness`, `saturation`, `less-saturation`, `value`, `closest-to-fallback`. |
+| `--prefer <kind>`   | Tell matugen which color to lean on when an image has multiple candidates. Defaults to `darkness`; other options: `lightness`, `saturation`, `less-saturation`, `value`, `closest-to-fallback`. Implies `--colors`; `--colors <kind>` is a shorthand. |
+| `--scheme <type>`   | How matugen builds the palette from that color: `tonal-spot` (default), `vibrant`, `expressive`, `fidelity`, `content`, `fruit-salad`, `rainbow`, `neutral`, `monochrome`. Implies `--colors`. |
 
 Common combos:
 
@@ -125,6 +126,21 @@ nebula profile wallpaper split --colors --prefer saturation wide.jpg work
 The matugen template that drives `--colors` lives at
 `~/.config/matugen/templates/eww-colors.scss`. Edit it if you want to map
 M3 tokens differently, change the terminal-color picks, etc.
+
+## Trying color variants
+
+`nebula profile colors` remakes only `colors.scss`, from the profile's own
+wallpaper (a split wallpaper is joined back into one image first), and
+updates the bar at once if the profile is active. Wallpapers aren't touched.
+Settings you leave out stay as they were last time:
+
+```bash
+nebula profile colors --scheme vibrant          # active profile
+nebula profile colors --prefer saturation       # keeps "vibrant"
+nebula profile colors work --scheme monochrome  # another profile
+nebula profile colors --from ~/Pictures/x.png   # colors from another image
+nebula profile colors --show                    # what's in use now
+```
 
 ## Updating a profile
 

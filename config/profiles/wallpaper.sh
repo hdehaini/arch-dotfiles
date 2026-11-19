@@ -39,14 +39,59 @@ Hyprland layout, whatever monitors you have:
 
 Flags:
   --apply           Activate the profile after writing the files
-  --colors          Make <profile>/colors.scss from the image (matugen)
-  --prefer <kind>   matugen --prefer hint (default: darkness)
+  --colors [kind]   Make <profile>/colors.scss from the image (matugen).
+                    The optional kind is the same as --prefer.
+  --prefer <kind>   Which of the image's colors to build on:
+                      darkness (default), lightness, saturation,
+                      less-saturation, value, closest-to-fallback
+  --scheme <type>   How the palette is made from that color:
+                      tonal-spot (default), vibrant, expressive,
+                      fidelity, content, fruit-salad, rainbow,
+                      neutral, monochrome
+                    (--prefer and --scheme imply --colors)
+                    Colors only, wallpapers untouched:
+                      ${CMD% wallpaper} colors --help
 
 Examples:
   $CMD split ultrawide.png work                 across the whole desk row
   $CMD split wide.png work left center          only across these two
   $CMD set   tv.png work top                    just the screen above
   $CMD set   pic.png . all --apply              everywhere, active profile
+  $CMD split wide.png . --colors lightness --scheme vibrant --apply
+                                                    try another color variant
+EOF
+}
+
+colors_help() {
+    cat <<EOF
+${CMD% wallpaper} colors — remake a profile's color palette, wallpapers untouched.
+
+Usage: ${CMD% wallpaper} colors [profile] [--prefer kind] [--scheme type] [--from image]
+
+  [profile]         Which profile (default: the active one). If it's the
+                    active one, the bar updates right away.
+  --prefer <kind>   Which of the image's colors to build on:
+                      darkness (default), lightness, saturation,
+                      less-saturation, value, closest-to-fallback
+  --scheme <type>   How the palette is made from that color:
+                      tonal-spot (default), vibrant, expressive,
+                      fidelity, content, fruit-salad, rainbow,
+                      neutral, monochrome
+  --from <image>    Take the colors from this image instead of the
+                    profile's own wallpaper
+
+--prefer and --scheme you leave out stay as they were last time, so you
+can change one at a time. Back to the defaults:
+  --prefer darkness --scheme tonal-spot
+
+The colors come from the profile's wallpaper: the desk screens' pieces
+joined back together, so a split image counts as a whole.
+Current settings:  ${CMD% wallpaper} colors --show
+
+Examples:
+  ${CMD% wallpaper} colors --scheme vibrant
+  ${CMD% wallpaper} colors --prefer saturation --scheme expressive
+  ${CMD% wallpaper} colors work --scheme monochrome
 EOF
 }
 
@@ -99,10 +144,15 @@ resolve() {
                 [ "$arg" -le "$n" ] || die "there are only $n desk screens"
                 echo "${desk[$(( arg - 1 ))]}"; return ;;
     esac
-    # A raw output name. Allow disconnected ones, but say so.
+    # A raw output name. Allow disconnected ones (e.g. a TV that's off), but
+    # only if it looks like one (DP-1, HDMI-A-2, eDP-1), so a stray word
+    # isn't taken for a screen.
     load_layout
-    awk -v n="$arg" '$1 == n {f=1} END {exit !f}' <<<"$LAYOUT" \
-        || warn "$arg is not connected right now (writing it anyway)"
+    if ! awk -v n="$arg" '$1 == n {f=1} END {exit !f}' <<<"$LAYOUT"; then
+        [[ "$arg" =~ ^[A-Za-z]+(-[A-Za-z]+)*-[0-9]+$ ]] ||
+            die "'$arg' is not a screen (see: $CMD screens)"
+        warn "$arg is not connected right now (writing it anyway)"
+    fi
     echo "$arg"
 }
 
@@ -199,10 +249,11 @@ type = "standard"
 input_path = '$template'
 output_path = '$dir/colors.scss'
 EOF
-    matugen -q -c "$cfg" --prefer "$PREFER" image "$img" || { rm -f "$cfg"; die "matugen failed"; }
+    matugen -q -c "$cfg" -t "scheme-$SCHEME" --prefer "$PREFER" image "$img" || { rm -f "$cfg"; die "matugen failed"; }
     rm -f "$cfg"
+    printf '\n// matugen: --prefer %s --scheme %s\n' "$PREFER" "$SCHEME" >> "$dir/colors.scss"
     echo "colors:"
-    echo "  $dir/colors.scss  (matugen --prefer $PREFER)"
+    echo "  $dir/colors.scss  (--prefer $PREFER --scheme $SCHEME)"
 }
 
 finish() {
@@ -217,6 +268,58 @@ finish() {
 }
 
 # --- actions --------------------------------------------------------------
+# The profile's wallpaper as one image: the desk-row pieces joined left to
+# right (so a split image is whole again), or the first image it has.
+profile_image() {
+    local dir="$1" out="$2" m f pieces=()
+    while read -r m; do
+        f="$(ls "$dir/wallpapers/$m".* 2>/dev/null | head -n1)"
+        [ -n "$f" ] && pieces+=("$f")
+    done < <(desk_row)
+    if [ "${#pieces[@]}" -ge 2 ]; then
+        command -v magick >/dev/null || die "ImageMagick not found (pacman -S imagemagick)"
+        magick "${pieces[@]/%/[0]}" -resize x1080 +append "$out"; return
+    fi
+    [ "${#pieces[@]}" -eq 1 ] && f="${pieces[0]}" || f="$(ls "$dir"/wallpapers/* 2>/dev/null | head -n1)"
+    [ -n "$f" ] || die "$(basename "$dir") has no wallpapers to take colors from (use --from <image>)"
+    cp -- "$f" "$out"
+}
+
+# Only the palette: remake colors.scss and, if the profile is active, show
+# it in the bar right away (the wallpapers aren't touched).
+do_colors() {
+    [ $# -le 1 ] || die "usage: ${CMD% wallpaper} colors [profile] [--prefer kind] [--scheme type] [--from image]"
+    local dir name img tmp=""
+    dir="$(profile_dir "${1:-.}")"; name="$(basename "$dir")"
+    if [ "$SHOW_ONLY" -eq 1 ]; then
+        local how; how="$(grep -o -- '--prefer .*' "$dir/colors.scss" 2>/dev/null | tail -n1)"
+        echo "$name: ${how:-no record (made before this was tracked, or by hand)}"
+        return
+    fi
+    # Settings not given this time stay as they were last time.
+    local last; last="$(grep -o -- '--prefer .*' "$dir/colors.scss" 2>/dev/null | tail -n1)"
+    if [ -n "$last" ]; then
+        [ "$PREFER_SET" -eq 1 ] || PREFER="$(awk '{print $2}' <<<"$last")"
+        [ "$SCHEME_SET" -eq 1 ] || SCHEME="$(awk '{print $4}' <<<"$last")"
+    fi
+    if [ -n "$FROM" ]; then
+        [ -f "$FROM" ] || die "image not found: $FROM"
+        img="$FROM"
+    else
+        tmp="$(mktemp --suffix=.png)"; img="$tmp"
+        profile_image "$dir" "$tmp"
+    fi
+    make_colors "$img" "$dir"
+    [ -n "$tmp" ] && rm -f "$tmp"
+    if [ "$name" = "$(cat "$PROFILES/.current" 2>/dev/null)" ]; then
+        cp "$dir/colors.scss" "$HOME/.config/eww/colors.scss"
+        eww reload >/dev/null 2>&1 || true
+        echo "applied to the bar"
+    else
+        echo "activate with:  ${CMD% wallpaper} switch \"$name\""
+    fi
+}
+
 do_set() {
     [ $# -ge 3 ] || die "usage: $CMD set <image> <profile> <screen>...  (screen names: $CMD screens)"
     local img="$1" dir; dir="$(profile_dir "$2")"; shift 2
@@ -301,7 +404,17 @@ do_split() {
 # --- main -----------------------------------------------------------------
 GEN_COLORS=0
 DO_APPLY=0
+FROM=""
+SHOW_ONLY=0
+PREFER_SET=0
+SCHEME_SET=0
 PREFER=darkness
+SCHEME=tonal-spot
+PREFERS="darkness lightness saturation less-saturation value closest-to-fallback"
+SCHEMES="tonal-spot vibrant expressive fidelity content fruit-salad rainbow neutral monochrome"
+one_of() {  # one_of <flag> <value> <choices>
+    [[ " $3 " == *" $2 "* ]] || die "$1 must be one of: $3"
+}
 
 action="${1:-show}"
 [ $# -gt 0 ] && shift
@@ -312,10 +425,17 @@ esac
 ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
-        --colors)  GEN_COLORS=1; shift ;;
+        --colors)  GEN_COLORS=1; shift
+                   # optional kind right after it: --colors lightness
+                   if [ $# -gt 0 ] && [[ " $PREFERS " == *" $1 "* ]]; then PREFER="$1"; PREFER_SET=1; shift; fi ;;
         --apply)   DO_APPLY=1;   shift ;;
-        --prefer)  [ $# -ge 2 ] || die "--prefer needs a value"; PREFER="$2"; shift 2 ;;
-        -h|--help) show_help; exit 0 ;;
+        --show)    SHOW_ONLY=1;  shift ;;
+        --prefer)  [ $# -ge 2 ] || die "--prefer needs a value ($PREFERS)"
+                   one_of --prefer "$2" "$PREFERS"; PREFER="$2"; PREFER_SET=1; GEN_COLORS=1; shift 2 ;;
+        --scheme)  [ $# -ge 2 ] || die "--scheme needs a value ($SCHEMES)"
+                   SCHEME="${2#scheme-}"; one_of --scheme "$SCHEME" "$SCHEMES"; SCHEME_SET=1; GEN_COLORS=1; shift 2 ;;
+        --from)    [ $# -ge 2 ] || die "--from needs an image"; FROM="$2"; shift 2 ;;
+        -h|--help) [ "$action" = colors ] && { colors_help; exit 0; }; show_help; exit 0 ;;
         -*)        die "unknown flag: $1" ;;
         *)         ARGS+=("$1"); shift ;;
     esac
@@ -327,5 +447,6 @@ case "$action" in
     show)             do_show "$@" ;;
     set)              do_set "$@" ;;
     split)            do_split "$@" ;;
+    colors|colours)   do_colors "$@" ;;
     *) die "unknown action: $action (try: $CMD --help)" ;;
 esac

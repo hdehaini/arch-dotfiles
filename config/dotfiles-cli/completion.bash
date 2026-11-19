@@ -64,7 +64,7 @@ _dotfiles_cli_pos() {
     local i pos=0
     for (( i = $1; i < COMP_CWORD; i++ )); do
         case "${COMP_WORDS[i]}" in
-            --prefer) i=$((i + 1)) ;;
+            --prefer|--scheme|--from) i=$((i + 1)) ;;
             -*) ;;
             *) pos=$((pos + 1)) ;;
         esac
@@ -78,12 +78,16 @@ _dotfiles_cli_wallpaper() {
     if [ "$COMP_CWORD" -eq "$at" ]; then
         _dotfiles_cli_add "$cur" show screens set split --help; return
     fi
-    if [ "$prev" = "--prefer" ]; then
+    if [ "$prev" = "--prefer" ] || [ "$prev" = "--colors" ]; then
         _dotfiles_cli_add "$cur" darkness lightness saturation less-saturation value closest-to-fallback
+        [ "$prev" = "--prefer" ] && return
+    fi
+    if [ "$prev" = "--scheme" ]; then
+        _dotfiles_cli_add "$cur" tonal-spot vibrant expressive fidelity content fruit-salad rainbow neutral monochrome
         return
     fi
     if [[ "$cur" == -* ]]; then
-        _dotfiles_cli_add "$cur" --apply --colors --prefer; return
+        _dotfiles_cli_add "$cur" --apply --colors --prefer --scheme; return
     fi
     local pos; pos="$(_dotfiles_cli_pos $(( at + 1 )))"
     case "${COMP_WORDS[at]}" in
@@ -114,10 +118,18 @@ _dotfiles_cli() {
     case "$cmd" in
         profile)
             if [ "$COMP_CWORD" -eq 2 ]; then
-                _dotfiles_cli_add "$cur" list current switch apply menu new delete rename wallpaper login-screen --help; return
+                _dotfiles_cli_add "$cur" list current switch apply menu new delete rename wallpaper colors login-screen --help; return
             fi
             case "$action" in
                 wallpaper|wp) _dotfiles_cli_wallpaper 3 ;;
+                colors|colours)
+                    case "$prev" in
+                        --prefer) _dotfiles_cli_add "$cur" darkness lightness saturation less-saturation value closest-to-fallback ;;
+                        --scheme) _dotfiles_cli_add "$cur" tonal-spot vibrant expressive fidelity content fruit-salad rainbow neutral monochrome ;;
+                        --from)   _dotfiles_cli_images "$cur" ;;
+                        *) if [[ "$cur" == -* ]]; then _dotfiles_cli_add "$cur" --prefer --scheme --from --show --help
+                           else mapfile -t p < <(_dotfiles_cli_profiles); _dotfiles_cli_add "$cur" . "${p[@]}"; fi ;;
+                    esac ;;
                 login-screen)
                     if [[ "$cur" == -* ]]; then _dotfiles_cli_add "$cur" --preview
                     else _dotfiles_cli_images "$cur"; fi ;;
